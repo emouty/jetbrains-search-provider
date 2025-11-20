@@ -4,25 +4,27 @@ import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const JETBRAINS_APPS = [
-  {name: 'IntelliJ IDEA', exec: 'idea', configDir: '.IntelliJIdea'},
-  {name: 'PyCharm', exec: 'pycharm', configDir: '.PyCharm'},
-  {name: 'WebStorm', exec: 'webstorm', configDir: '.WebStorm'},
-  {name: 'PhpStorm', exec: 'phpstorm', configDir: '.PhpStorm'},
-  {name: 'GoLand', exec: 'goland', configDir: '.GoLand'},
-  {name: 'CLion', exec: 'clion', configDir: '.CLion'},
-  {name: 'Rider', exec: 'rider', configDir: '.Rider'},
-  {name: 'RubyMine', exec: 'rubymine', configDir: '.RubyMine'},
-  {name: 'DataGrip', exec: 'datagrip', configDir: '.DataGrip'},
-  {name: 'Android Studio', exec: 'android-studio', configDir: '.AndroidStudio'},
-  {name: 'RustRover', exec: 'rustrover', configDir: '.RustRover'}
+  {name: 'IntelliJ IDEA', exec: 'idea', configDir: '.IntelliJIdea', icon: 'intellij-idea-ultimate'},
+  {name: 'PyCharm', exec: 'pycharm', configDir: '.PyCharm', icon: 'pycharm'},
+  {name: 'WebStorm', exec: 'webstorm', configDir: '.WebStorm', icon: 'webstorm'},
+  {name: 'PhpStorm', exec: 'phpstorm', configDir: '.PhpStorm', icon: 'phpstorm'},
+  {name: 'GoLand', exec: 'goland', configDir: '.GoLand', icon: 'goland'},
+  {name: 'CLion', exec: 'clion', configDir: '.CLion', icon: 'clion'},
+  {name: 'Rider', exec: 'rider', configDir: '.Rider', icon: 'rider'},
+  {name: 'RubyMine', exec: 'rubymine', configDir: '.RubyMine', icon: 'rubymine'},
+  {name: 'DataGrip', exec: 'datagrip', configDir: '.DataGrip', icon: 'datagrip'},
+  {name: 'Android Studio', exec: 'android-studio', configDir: '.AndroidStudio', icon: 'android-studio'},
+  {name: 'RustRover', exec: 'rustrover', configDir: '.RustRover', icon: 'rustrover'}
 ];
 
 class JetBrainsProject {
-  constructor(name, path, appName, appExec) {
+  constructor(name, path, appName, appExec, appIcon) {
     this.name = name;
     this.path = path;
     this.appName = appName;
     this.appExec = appExec;
+    this.appIcon = appIcon;
+    this._iconCache = null;
   }
 
   launch() {
@@ -31,6 +33,61 @@ class JetBrainsProject {
     } catch (e) {
       log(`Failed to launch ${this.appName}: ${e}`);
     }
+  }
+
+  getProjectIconPath() {
+    const iconPath = GLib.build_filenamev([this.path, '.idea', 'icon.png']);
+    const iconFile = Gio.File.new_for_path(iconPath);
+    if (iconFile.query_exists(null)) {
+      return iconPath;
+    }
+    return null;
+  }
+
+  createIcon(size, scaleFactor) {
+    // Try project icon first
+    const projectIconPath = this.getProjectIconPath();
+    if (projectIconPath) {
+      try {
+        const file = Gio.File.new_for_path(projectIconPath);
+        const gicon = new Gio.FileIcon({file: file});
+        const icon = new St.Icon({
+          gicon: gicon,
+          icon_size: size
+        });
+        log(`JetBrains Extension: Using project icon for ${this.name}`);
+        return icon;
+      } catch (e) {
+        log(`JetBrains Extension: Failed to load project icon ${projectIconPath}: ${e}`);
+      }
+    }
+
+    // Try IDE icon with multiple fallback names
+    if (this.appIcon) {
+      const iconNames = [
+        this.appIcon,
+        this.appIcon.toLowerCase(),
+        `jetbrains-${this.appExec}`,
+        this.appExec,
+        'application-x-executable'
+      ];
+
+      const gicon = new Gio.ThemedIcon({names: iconNames});
+      const icon = new St.Icon({
+        gicon: gicon,
+        icon_size: size,
+        fallback_icon_name: 'folder-symbolic'
+      });
+      log(`JetBrains Extension: Using IDE icon for ${this.name} with fallbacks: ${iconNames.join(', ')}`);
+      return icon;
+    }
+
+    // Fallback to generic folder icon
+    log(`JetBrains Extension: Using fallback icon for ${this.name}`);
+    return new St.Icon({
+      icon_name: 'folder-symbolic',
+      icon_size: size
+    });
   }
 }
 
@@ -146,7 +203,8 @@ class JetBrainsSearchProvider {
               projectName,
               projectPath,
               app.name,
-              app.exec
+              app.exec,
+              app.icon
             ));
             projectCount++;
             log(`JetBrains Extension: Added project ${projectName} (${projectPath}) for ${app.name}`);
@@ -166,7 +224,6 @@ class JetBrainsSearchProvider {
     return `jetbrains-${project.appExec}-${project.path.replace(/\//g, '_')}`;
   }
 
-  // GNOME 45+ API: All methods return Promises
   getInitialResultSet(terms, cancellable) {
     log(`JetBrains Extension: getInitialResultSet called with terms: [${terms.join(', ')}]`);
 
@@ -225,8 +282,7 @@ class JetBrainsSearchProvider {
             description: 'Project not found',
             createIcon: size => new St.Icon({
               icon_name: 'dialog-question-symbolic',
-              width: size * scaleFactor,
-              height: size * scaleFactor,
+              icon_size: size
             })
           };
         }
@@ -235,11 +291,7 @@ class JetBrainsSearchProvider {
           id: id,
           name: project.name,
           description: `${project.appName} • ${project.path}`,
-          createIcon: size => new St.Icon({
-            icon_name: 'folder-symbolic',
-            width: size * scaleFactor,
-            height: size * scaleFactor,
-          })
+          createIcon: size => project.createIcon(size, scaleFactor)
         };
       });
 
@@ -271,7 +323,6 @@ class JetBrainsSearchProvider {
 
   launchSearch(terms) {
     log(`JetBrains Extension: launchSearch called with terms: [${terms.join(', ')}]`);
-    // Optional: open file manager or do nothing
   }
 
   createResultObject(meta) {
