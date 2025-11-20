@@ -4,27 +4,40 @@ import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const JETBRAINS_APPS = [
-  {name: 'IntelliJ IDEA', exec: 'idea', configDir: '.IntelliJIdea', icon: 'intellij-idea-ultimate'},
-  {name: 'PyCharm', exec: 'pycharm', configDir: '.PyCharm', icon: 'pycharm'},
-  {name: 'WebStorm', exec: 'webstorm', configDir: '.WebStorm', icon: 'webstorm'},
-  {name: 'PhpStorm', exec: 'phpstorm', configDir: '.PhpStorm', icon: 'phpstorm'},
-  {name: 'GoLand', exec: 'goland', configDir: '.GoLand', icon: 'goland'},
-  {name: 'CLion', exec: 'clion', configDir: '.CLion', icon: 'clion'},
-  {name: 'Rider', exec: 'rider', configDir: '.Rider', icon: 'rider'},
-  {name: 'RubyMine', exec: 'rubymine', configDir: '.RubyMine', icon: 'rubymine'},
-  {name: 'DataGrip', exec: 'datagrip', configDir: '.DataGrip', icon: 'datagrip'},
-  {name: 'Android Studio', exec: 'android-studio', configDir: '.AndroidStudio', icon: 'android-studio'},
-  {name: 'RustRover', exec: 'rustrover', configDir: '.RustRover', icon: 'rustrover'}
+  {
+    name: 'IntelliJ IDEA',
+    exec: 'idea',
+    configDir: '.IntelliJIdea',
+    toolboxDir: 'intellij-idea-ultimate',
+    iconFile: 'idea.svg'
+  },
+  {name: 'PyCharm', exec: 'pycharm', configDir: '.PyCharm', toolboxDir: 'pycharm-community', iconFile: 'pycharm.svg'},
+  {name: 'WebStorm', exec: 'webstorm', configDir: '.WebStorm', toolboxDir: 'webstorm', iconFile: 'webstorm.svg'},
+  {name: 'PhpStorm', exec: 'phpstorm', configDir: '.PhpStorm', toolboxDir: 'phpstorm', iconFile: 'phpstorm.svg'},
+  {name: 'GoLand', exec: 'goland', configDir: '.GoLand', toolboxDir: 'goland', iconFile: 'goland.svg'},
+  {name: 'CLion', exec: 'clion', configDir: '.CLion', toolboxDir: 'clion', iconFile: 'clion.svg'},
+  {name: 'Rider', exec: 'rider', configDir: '.Rider', toolboxDir: 'rider', iconFile: 'rider.svg'},
+  {name: 'RubyMine', exec: 'rubymine', configDir: '.RubyMine', toolboxDir: 'rubymine', iconFile: 'rubymine.svg'},
+  {name: 'DataGrip', exec: 'datagrip', configDir: '.DataGrip', toolboxDir: 'datagrip', iconFile: 'datagrip.svg'},
+  {
+    name: 'Android Studio',
+    exec: 'android-studio',
+    configDir: '.AndroidStudio',
+    toolboxDir: 'android-studio',
+    iconFile: 'studio.svg'
+  },
+  {name: 'RustRover', exec: 'rustrover', configDir: '.RustRover', toolboxDir: 'rustrover', iconFile: 'rustrover.svg'}
 ];
 
 class JetBrainsProject {
-  constructor(name, path, appName, appExec, appIcon) {
+  constructor(name, path, appName, appExec, toolboxDir, iconFile) {
     this.name = name;
     this.path = path;
     this.appName = appName;
     this.appExec = appExec;
-    this.appIcon = appIcon;
-    this._iconCache = null;
+    this.toolboxDir = toolboxDir;
+    this.iconFile = iconFile;
+    this._cachedIcon = null;
   }
 
   launch() {
@@ -40,6 +53,30 @@ class JetBrainsProject {
     const iconFile = Gio.File.new_for_path(iconPath);
     if (iconFile.query_exists(null)) {
       return iconPath;
+    }
+    return null;
+  }
+
+  _getIdeIconFromToolbox() {
+    if (!this.toolboxDir || !this.iconFile) return null;
+
+    const homeDir = GLib.get_home_dir();
+    const iconPath = GLib.build_filenamev([
+      homeDir, '.local', 'share', 'JetBrains', 'Toolbox', 'apps',
+      this.toolboxDir, 'bin', this.iconFile
+    ]);
+
+    const iconFile = Gio.File.new_for_path(iconPath);
+    if (iconFile.query_exists(null)) {
+      try {
+        const gicon = new Gio.FileIcon({file: iconFile});
+        log(`JetBrains Extension: Found IDE icon from Toolbox: ${iconPath}`);
+        return gicon;
+      } catch (e) {
+        log(`JetBrains Extension: Could not load Toolbox icon ${iconPath}: ${e}`);
+      }
+    } else {
+      log(`JetBrains Extension: Toolbox icon not found: ${iconPath}`);
     }
     return null;
   }
@@ -62,28 +99,19 @@ class JetBrainsProject {
       }
     }
 
-    // Try IDE icon with multiple fallback names
-    if (this.appIcon) {
-      const iconNames = [
-        this.appIcon,
-        this.appIcon.toLowerCase(),
-        `jetbrains-${this.appExec}`,
-        this.appExec,
-        'application-x-executable'
-      ];
-
-      const gicon = new Gio.ThemedIcon({names: iconNames});
+    // Try IDE icon from Toolbox
+    const ideIcon = this._getIdeIconFromToolbox();
+    if (ideIcon) {
       const icon = new St.Icon({
-        gicon: gicon,
-        icon_size: size,
-        fallback_icon_name: 'folder-symbolic'
+        gicon: ideIcon,
+        icon_size: size
       });
-      log(`JetBrains Extension: Using IDE icon for ${this.name} with fallbacks: ${iconNames.join(', ')}`);
+      log(`JetBrains Extension: Using IDE icon from Toolbox for ${this.name}`);
       return icon;
     }
 
     // Fallback to generic folder icon
-    log(`JetBrains Extension: Using fallback icon for ${this.name}`);
+    log(`JetBrains Extension: Using fallback folder icon for ${this.name}`);
     return new St.Icon({
       icon_name: 'folder-symbolic',
       icon_size: size
@@ -204,7 +232,8 @@ class JetBrainsSearchProvider {
               projectPath,
               app.name,
               app.exec,
-              app.icon
+              app.toolboxDir,
+              app.iconFile
             ));
             projectCount++;
             log(`JetBrains Extension: Added project ${projectName} (${projectPath}) for ${app.name}`);
