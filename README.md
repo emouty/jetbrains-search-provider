@@ -1,4 +1,4 @@
-# JetBrains Projct Search Provider
+# JetBrains Project Search Provider
 
 A GNOME Shell extension that integrates JetBrains IDE projects into the system search, allowing you to quickly find and
 open your projects directly from the Activities overview.
