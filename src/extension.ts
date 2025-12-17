@@ -2,10 +2,10 @@ import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import {Extension} from "resource:///org/gnome/shell/extensions/extension.js";
 import {AppSearchProvider} from "resource:///org/gnome/shell/ui/appDisplay.js";
-import {JETBRAINS_APPS} from "./project.js";
 import BaseJetBrainsProvider from "./baseProvider.js";
 import IntelliJProvider from "./intellijProvider.js";
 import AndroidStudioProvider from "./androidStudioProvider.js";
+import {JETBRAINS_APPS} from "./jetBrainsApp.js";
 
 // noinspection JSUnusedGlobalSymbols
 export default class JetBrainsSearchProviderExtension extends Extension {

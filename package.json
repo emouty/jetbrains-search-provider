@@ -8,7 +8,6 @@
     "type": "git",
     "url": "git+https://github.com/emouty/jetbrains-search-provider.git"
   },
-  "author": "Alvaro Tinoco <contact@mrmarble.dev>",
   "license": "LGPL-3.0-or-later",
   "bugs": {
     "url": "https://github.com/emouty/jetbrains-search-provider/issues"
@@ -32,7 +31,7 @@
   },
   "release": {
     "branches": [
-      "main"
+      "master"
     ]
   },
   "simple-git-hooks": {

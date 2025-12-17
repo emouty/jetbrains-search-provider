@@ -2,94 +2,6 @@ import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-export interface JetBrainsApp {
-    name: string;
-    exec: string;
-    configDir: string;
-    toolboxDir: string;
-    iconFile: string;
-}
-
-export const JETBRAINS_APPS: JetBrainsApp[] = [
-    {
-        name: 'IntelliJ IDEA',
-        exec: 'idea',
-        configDir: '.IntelliJIdea',
-        toolboxDir: 'intellij-idea-ultimate',
-        iconFile: 'idea.svg'
-    },
-    {
-        name: 'PyCharm',
-        exec: 'pycharm',
-        configDir: '.PyCharm',
-        toolboxDir: 'pycharm-community',
-        iconFile: 'pycharm.svg'
-    },
-    {
-        name: 'WebStorm',
-        exec: 'webstorm',
-        configDir: '.WebStorm',
-        toolboxDir: 'webstorm',
-        iconFile: 'webstorm.svg'
-    },
-    {
-        name: 'PhpStorm',
-        exec: 'phpstorm',
-        configDir: '.PhpStorm',
-        toolboxDir: 'phpstorm',
-        iconFile: 'phpstorm.svg'
-    },
-    {
-        name: 'GoLand',
-        exec: 'goland',
-        configDir: '.GoLand',
-        toolboxDir: 'goland',
-        iconFile: 'goland.svg'
-    },
-    {
-        name: 'CLion',
-        exec: 'clion',
-        configDir: '.CLion',
-        toolboxDir: 'clion',
-        iconFile: 'clion.svg'
-    },
-    {
-        name: 'Rider',
-        exec: 'rider',
-        configDir: '.Rider',
-        toolboxDir: 'rider',
-        iconFile: 'rider.svg'
-    },
-    {
-        name: 'RubyMine',
-        exec: 'rubymine',
-        configDir: '.RubyMine',
-        toolboxDir: 'rubymine',
-        iconFile: 'rubymine.svg'
-    },
-    {
-        name: 'DataGrip',
-        exec: 'datagrip',
-        configDir: '.DataGrip',
-        toolboxDir: 'datagrip',
-        iconFile: 'datagrip.svg'
-    },
-    {
-        name: 'Android Studio',
-        exec: 'android-studio',
-        configDir: '.AndroidStudio',
-        toolboxDir: 'android-studio',
-        iconFile: 'studio.svg'
-    },
-    {
-        name: 'RustRover',
-        exec: 'rustrover',
-        configDir: '.RustRover',
-        toolboxDir: 'rustrover',
-        iconFile: 'rustrover.svg'
-    }
-];
-
 export class JetBrainsProject {
     name: string;
     path: string;
@@ -175,7 +87,6 @@ export class JetBrainsProject {
                     const filename = info.get_name();
                     if (!filename.endsWith('.desktop')) continue;
 
-                    // Look for JetBrains desktop files that might match this app
                     if (filename.includes('jetbrains') &&
                         (filename.toLowerCase().includes(this.appExec.toLowerCase()) ||
                             filename.toLowerCase().includes(this.appName.toLowerCase().replace(/\s+/g, '-')))) {
