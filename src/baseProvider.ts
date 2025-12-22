@@ -158,7 +158,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             }
 
             return searchPatterns.some(pattern => {
-                const regex = new RegExp(`\\b${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+                const regex = new RegExp(`\\b${this._escapeRegex(pattern)}\\b`, 'i');
                 return regex.test(text);
             });
         } catch (e) {
@@ -172,6 +172,10 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
     protected shouldIncludeProject(_projectPath: string): boolean {
         return true;
+    }
+
+    private _escapeRegex(str: string): string {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     private _loadProjects(): void {
@@ -199,12 +203,16 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                     const fileType = info.get_file_type();
                     if (fileType !== Gio.FileType.DIRECTORY) continue;
 
+                    const escapedConfigDir = this._escapeRegex(this.jetbrainsApp.configDir.substring(1));
+                    const escapedName = this._escapeRegex(this.jetbrainsApp.name.replace(/\s+/g, ''));
+                    const escapedExec = this._escapeRegex(this.jetbrainsApp.exec);
+
                     const patterns = [
-                        new RegExp(`^${this.jetbrainsApp.configDir.substring(1)}\\d{4}\\.\\d+`, 'i'),
-                        new RegExp(`^${this.jetbrainsApp.name.replace(/\s+/g, '')}\\d{4}\\.\\d+`, 'i'),
-                        new RegExp(`^${this.jetbrainsApp.name.replace(/\s+/g, '')}CE\\d{4}\\.\\d+`, 'i'),
-                        new RegExp(`^${this.jetbrainsApp.exec}IC\\d{4}\\.\\d+`, 'i'),
-                        new RegExp(`^_${this.jetbrainsApp.configDir.substring(1)}\\d{4}\\.\\d+`, 'i')
+                        new RegExp(`^${escapedConfigDir}\\d{4}\\.\\d+`, 'i'),
+                        new RegExp(`^${escapedName}\\d{4}\\.\\d+`, 'i'),
+                        new RegExp(`^${escapedName}CE\\d{4}\\.\\d+`, 'i'),
+                        new RegExp(`^${escapedExec}IC\\d{4}\\.\\d+`, 'i'),
+                        new RegExp(`^_${escapedConfigDir}\\d{4}\\.\\d+`, 'i')
                     ];
 
                     patterns.push(...this.getAdditionalConfigPatterns());
@@ -396,10 +404,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      *
      * @async
      * @param {string[]} terms - The search terms
-     * @param {Gio.Cancellable} _cancellable - A cancellable for the operation
+     * @param {Gio.Cancellable} cancellable - A cancellable for the operation
      * @returns {Promise<string[]>} A list of result identifiers
      */
-    async getInitialResultSet(terms: string[], _cancellable: Gio.Cancellable): Promise<string[]> {
+    async getInitialResultSet(terms: string[], cancellable: Gio.Cancellable): Promise<string[]> {
+        if (cancellable.is_cancelled()) {
+            throw new Error('Search cancelled');
+        }
+
         const searchTerm = terms.join("").toLowerCase();
 
         // Score and filter projects
@@ -435,10 +447,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * @async
      * @param {string[]} previousResults - The original result set
      * @param {string[]} terms - The search terms
-     * @param {Gio.Cancellable} _cancellable - A cancellable for the operation
+     * @param {Gio.Cancellable} cancellable - A cancellable for the operation
      * @returns {Promise<string[]>} A list of refined result identifiers
      */
-    async getSubsearchResultSet(previousResults: string[], terms: string[], _cancellable: Gio.Cancellable): Promise<string[]> {
+    async getSubsearchResultSet(previousResults: string[], terms: string[], cancellable: Gio.Cancellable): Promise<string[]> {
+        if (cancellable.is_cancelled()) {
+            throw new Error('Search cancelled');
+        }
+
         const searchTerm = terms.join("").toLowerCase();
 
         const scoredResults = previousResults
@@ -472,10 +488,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      *
      * @async
      * @param {string[]} results - The result identifiers
-     * @param {Gio.Cancellable} _cancellable - A cancellable for the operation
+     * @param {Gio.Cancellable} cancellable - A cancellable for the operation
      * @returns {Promise<ResultMeta[]>} A list of result metadata objects
      */
-    async getResultMetas(results: string[], _cancellable: Gio.Cancellable): Promise<ResultMeta[]> {
+    async getResultMetas(results: string[], cancellable: Gio.Cancellable): Promise<ResultMeta[]> {
+        if (cancellable.is_cancelled()) {
+            throw new Error('Operation cancelled');
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const {scaleFactor} = St.ThemeContext.get_for_stage((global as any).stage);
 

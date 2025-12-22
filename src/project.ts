@@ -100,11 +100,26 @@ export class JetBrainsProject {
                                 const execMatch = text.match(/^Exec=(.+)$/m);
                                 if (execMatch) {
                                     let execCommand = execMatch[1];
-                                    // Replace %f, %F, %u, %U with the project path
-                                    execCommand = execCommand.replace(/%[fFuU]/g, `"${this.path}"`);
+                                    // Replace %f, %F, %u, %U with the project path, safely shell-quoted
+                                    execCommand = execCommand.replace(/%[fFuU]/g, GLib.shell_quote(this.path));
 
-                                    GLib.spawn_command_line_async(execCommand);
-                                    return true;
+                                    try {
+                                        // Parse the command into argv and launch without invoking a shell
+                                        const [parsed, argv] = GLib.shell_parse_argv(execCommand);
+                                        if (parsed && argv) {
+                                            const subprocess = Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
+                                            subprocess.wait_async(null, (obj, res) => {
+                                                try {
+                                                    obj?.wait_finish(res);
+                                                } catch (e) {
+                                                    console.warn(`JetBrains Search Provider: Desktop file subprocess error for ${this.name}: ${e}`);
+                                                }
+                                            });
+                                            return true;
+                                        }
+                                    } catch (e) {
+                                        console.warn(`JetBrains Search Provider: Failed to parse or launch desktop file command: ${e}`);
+                                    }
                                 }
                             }
                         } catch (e) {

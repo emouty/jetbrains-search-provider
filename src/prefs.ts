@@ -3,15 +3,12 @@ import Adw from "gi://Adw";
 
 import {ExtensionPreferences, gettext as _,} from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
-type Window = Adw.PreferencesWindow & {
-    _settings: Gio.Settings | null;
-};
 // noinspection JSUnusedGlobalSymbols
 export default class JetBrainsPreferences extends ExtensionPreferences {
     _settings: Gio.Settings | null = null;
 
-    fillPreferencesWindow(window: Window) {
-        window._settings = this.getSettings('org.gnome.shell.extensions.jetbrains-search');
+    fillPreferencesWindow(window: Adw.PreferencesWindow) {
+        this._settings = this.getSettings('org.gnome.shell.extensions.jetbrains-search');
 
         const page = new Adw.PreferencesPage({
             title: _("General"),
@@ -35,7 +32,7 @@ export default class JetBrainsPreferences extends ExtensionPreferences {
             ),
         });
         group.add(overrideResultsOrder);
-        window._settings.bind(
+        this._settings!.bind(
             "override-results-order",
             overrideResultsOrder,
             "active",
