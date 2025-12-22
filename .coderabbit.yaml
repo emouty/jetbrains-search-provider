@@ -1,0 +1,404 @@
+language: en-US
+early_access: false
+enable_free_tier: true
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+  tools:
+    shellcheck:
+      enabled: false
+    languagetool:
+      enabled: false
+  path_instructions:
+    - path: "**/*.ts"
+      instructions: |
+        GNOME Shell Extension Review Guidelines (GNOME 45+) - TypeScript Edition
+        
+        ## Extension Lifecycle
+        - Extensions MUST NOT create objects, connect signals, add main loop sources, or modify GNOME Shell during initialization (constructor or module import)
+        - enable() MUST create all necessary objects, connect signals, and add main loop sources
+        - disable() MUST properly clean up everything done in enable() - destroy objects, disconnect signals, remove sources
+        - Static resources in initialization are limited to built-in JavaScript objects (RegExp, Map, etc.) with no GObject classes
+        - Dynamically stored memory MUST be cleared or freed in disable() (e.g., Map.prototype.clear())
+        
+        ## Object Management
+        - All objects and widgets created by the extension MUST be destroyed in disable()
+        - Check for proper object cleanup using destroy() method
+        - Verify no object references are left that could cause memory leaks
+        
+        ## Signal Management
+        - All signal connections made by the extension MUST be disconnected in disable()
+        - Verify signal handlers are tracked (e.g., storing handler IDs)
+        - Check that disconnect() is called for each connected signal
+        
+        ## Main Loop Sources
+        - All main loop sources (GLib.timeout_add, GLib.idle_add, etc.) MUST be removed in disable()
+        - Verify sources are removed even if callback returns false or GLib.SOURCE_REMOVE
+        - Check that source IDs are stored and properly removed with GLib.Source.remove()
+        
+        ## Deprecated Modules
+        - Flag usage of ByteArray module - suggest TextDecoder/TextEncoder instead
+        - Flag usage of Lang module - suggest ES6 Classes and Function.prototype.bind() instead
+        - Flag usage of Mainloop module - suggest GLib.timeout_add() or setTimeout() instead
+        
+        ## Library Imports
+        - Reject imports of Gdk, Gtk, or Adw in extension.ts (GNOME Shell process)
+        - Reject imports of Clutter, Meta, St, or Shell in prefs.ts (preferences process)
+        - Ensure GTK libraries are only used in preferences, Shell libraries only in extension
+        
+        ## Extension System Interference
+        - Flag extensions that modify, reload, or interact with other extensions
+        - Note that such extensions require case-by-case review
+        
+        ## Code Quality
+        - Verify TypeScript code is readable, well-structured, and properly typed
+        - Check that code is not obfuscated
+        - Flag excessive or unnecessary logging - logs should only contain important messages and errors
+        - Check for consistent indentation and code style
+        - Encourage use of modern TypeScript features like proper type annotations, interfaces, and async/await
+        - Verify proper use of TypeScript types instead of 'any' where possible
+        - Check for proper null/undefined handling with TypeScript strict mode
+        
+        ## GObject Disposal
+        - Flag calls to GObject.Object.run_dispose() unless absolutely necessary
+        - Verify any run_dispose() calls have comments explaining why they're required
+        
+        ## External Scripts and Binaries
+        - Reject extensions that include binary executables or libraries
+        - Verify processes are spawned carefully and exit cleanly
+        - Check that scripts are written in GJS unless absolutely necessary
+        - Ensure external scripts are distributed under OSI-approved licenses
+        - Flag Python, HTML, or web JavaScript dependencies as requiring explicit user action
+        - Verify npm/pip/yarn installations require explicit user action (e.g., button in preferences)
+        
+        ## Clipboard Access
+        - Verify clipboard access is declared in the extension description
+        - Ensure clipboard data is not shared with third parties without explicit user interaction
+        - Check that no default keyboard shortcuts exist for clipboard operations
+        
+        ## Privileged Subprocesses
+        - Flag privileged subprocess usage as strongly discouraged
+        - Verify privileged subprocesses use pkexec
+        - Ensure privileged executables/scripts are not user-writable
+        
+        ## Functionality
+        - Flag extensions that serve no purpose or have no functionality
+        - Note if extension appears fundamentally broken
+        
+        ## AI-Generated Code
+        - Flag large amounts of unnecessary code that may indicate AI generation
+        - Note inconsistent code styles within the same file
+        - Flag imaginary API usage or non-existent methods
+        - Check for comments that appear to be LLM prompts
+        - Verify developer can reasonably explain submitted code
+        
+        ## Extension Structure
+        - Verify extension directory name matches the UUID in metadata.json
+        - Ensure extension.ts and metadata.json are present in the source directory
+        - Check that extension uses ESModules - no CommonJS require()
+        - Verify Extension class is properly exported as default export
+        - Verify ExtensionPreferences class is properly exported as default export in prefs.ts
+        - Ensure TypeScript compiles to extension.js and prefs.js for distribution
+        
+        ## UUID Format
+        - Check UUID follows email format: name@domain.example
+        - Verify UUID is globally unique and descriptive
+        - Ensure UUID in metadata.json matches directory name
+        - Flag generic or non-descriptive UUIDs
+        
+        ## Development Environment
+        - Note that extensions are installed in ~/.local/share/gnome-shell/extensions
+        - Remind that JavaScript engine caches loaded extensions
+        - Suggest proper testing workflow: modify code, compile TypeScript, restart shell, test
+        - Recommend testing with nested Wayland session (gnome-shell --devkit --wayland)
+        - Note that mutter-devkit package may be required for nested sessions
+        - Remind to test in nested session to avoid disrupting current session
+        
+        ## Imports and Modules (ESModules with TypeScript)
+        - Verify extensions use ES6 import/export syntax
+        - Check that default exports are used for Extension and ExtensionPreferences classes
+        - Verify relative imports use proper paths (e.g., ./utils.js for local modules - note .js extension even in .ts files)
+        - Ensure GNOME Shell modules use resource:// URIs
+        - Check extension.ts uses base path resource:///org/gnome/shell/js/
+        - Check prefs.ts uses base path resource:///org/gnome/Shell/Extensions/js/
+        - Verify library imports use gi:// protocol (e.g., import GLib from 'gi://GLib')
+        - Check built-in libraries (Cairo, System) use proper import syntax
+        - Flag use of legacy imports.* syntax
+        - Verify export declarations are properly used for classes, functions, and variables
+        - Ensure reusable GNOME Shell components are imported correctly from js/ui/
+        - Verify TypeScript import paths match runtime JavaScript paths (use .js extensions)
+        
+        ## Search Provider Implementation
+        - Verify search provider class implements required interface methods
+        - Check getInitialResultSet(terms) returns array of result IDs
+        - Check getSubsearchResultSet(previousResults, terms) is implemented
+        - Check getResultMetas(results) returns array of ResultMeta objects
+        - Verify activateResult(resultId) is implemented
+        - Ensure filterResults(results, maxResults) is implemented
+        - Check launchSearch(terms) is implemented
+        - Verify createResultObject(resultMeta) is implemented
+        - Ensure ResultMeta objects have required properties: id, name, createIcon
+        - Check optional ResultMeta properties: description, clipboardText
+        - Verify CreateIcon callback accounts for scale factor using St.ThemeContext
+        - Ensure search provider is registered in enable() method
+        - Verify search provider is unregistered in disable() method
+        - Check registration uses Main.overview.searchController.addProvider()
+        - Verify unregistration uses Main.overview.searchController.removeProvider()
+        - Ensure search provider can be part of extension's default export
+        - Check that search provider returns unique string identifiers as results
+        
+        ## Extension Base Classes
+        - Verify Extension class extends ExtensionBase
+        - Verify ExtensionPreferences class extends ExtensionBase
+        - Check that ExtensionBase is never subclassed directly
+        - Ensure constructor passes metadata argument to parent class (super(metadata))
+        - Verify enable() and disable() methods are implemented in Extension class
+        - Check ExtensionPreferences implements fillPreferencesWindow() or getPreferencesWidget()
+        - Recommend fillPreferencesWindow() over getPreferencesWidget() for preferences
+        - Verify ExtensionPreferences.fillPreferencesWindow() receives Adw.PreferencesWindow
+        - Check ExtensionPreferences.getPreferencesWidget() returns Gtk.Widget
+        - Verify openPreferences() is used to open extension preferences
+        
+        ## Extension Metadata
+        - Verify ExtensionMetadata object is accessible via this.metadata
+        - Check metadata contains required properties: uuid, name, description, shell-version
+        - Verify metadata.dir is a Gio.File object
+        - Verify metadata.path is a string path
+        - Ensure metadata is read-only and not modified
+        
+        ## Extension Utilities
+        - Verify getSettings(schema) is called on extension instance, not ExtensionUtils
+        - Check initTranslations(domain) is called on extension instance
+        - Verify gettext(), ngettext(), pgettext() are instance methods or module exports
+        - Ensure getSettings() loads schemas from extension's schemas subdirectory
+        - Check that domain parameter defaults to metadata['gettext-domain']
+        - Verify schema parameter defaults to metadata['settings-schema']
+        - Ensure initTranslations() loads from extension's locale subdirectory
+        
+        ## Static Methods (ExtensionBase)
+        - Verify ExtensionBase.lookupByUUID() is used correctly for extension lookup
+        - Check ExtensionBase.lookupByURL() is used with import.meta.url
+        - Ensure static methods return ExtensionBase instance or null
+        
+        ## InjectionManager
+        - Verify InjectionManager is instantiated in enable() method
+        - Check overrideMethod() receives prototype, methodName, and createOverrideFunc
+        - Ensure createOverrideFunc returns a function (method override)
+        - Verify createOverrideFunc receives originalMethod as first argument
+        - Check that arrow functions vs function expressions affect 'this' binding
+        - Verify restoreMethod() is called for each overridden method in disable()
+        - Ensure clear() is called in disable() to restore all methods
+        - Check that overrides are done in enable() and restored in disable()
+        
+        ## Deprecated Patterns
+        - Flag ExtensionUtils usage as deprecated - suggest using Extension class methods
+        - Flag usage of init() function as legacy pattern
+        - Suggest migrating from ExtensionUtils to Extension instance methods
+        
+        ## TypeScript Configuration
+        - Verify tsconfig.json is properly configured
+        - Check that @girs/gjs and @girs/gnome-shell are installed as dev dependencies
+        - Ensure ambient.d.ts file exists for import path mapping
+        - Check that package.json has type: module for ES modules
+        - Verify TypeScript compiler outputs well-formatted JavaScript
+        - Ensure target is ES2022 or later
+        - Check module is set to ES2022 or ESNext
+        - Verify strict mode is enabled for type safety
+        - Ensure outDir points to dist or output folder
+        - Check that rootDir is properly configured
+        - Verify moduleResolution is set to bundler or node16
+        - Ensure skipLibCheck is true to avoid type checking node_modules
+        
+        ## TypeScript Build Process
+        - Verify build process generates extension.js and prefs.js from .ts files
+        - Check that .ts files are not included in distribution zip
+        - Ensure dist/output folder contains only compiled JavaScript files
+        - Verify Makefile or package.json scripts exist for build automation
+        - Check that TypeScript compilation happens before packaging
+        - Ensure source maps are not included in distribution (or only in debug builds)
+        
+        ## TypeScript Type Safety
+        - Verify proper typing for GObject introspection imports
+        - Check that GSettings methods use proper type annotations
+        - Ensure signal handlers have correct type signatures
+        - Verify callback functions are properly typed
+        - Check for proper null/undefined checks with TypeScript
+        - Ensure GLib types (e.g., GLib.Source) are properly used
+        - Verify Meta, St, Shell types from @girs packages are used
+        
+        ## Gettext Translations
+        - Verify translations are initialized with initTranslations() in constructor or early
+        - Check that gettext() is used for translating strings
+        - Verify ngettext() is used for plural forms
+        - Check pgettext() is used for context-disambiguated translations
+        - Ensure gettext-domain is specified in metadata.json
+        - Verify translations are loaded from locale subdirectory
+        - Check that translation functions are available as module exports
+        
+        ## GSettings Integration
+        - Verify settings-schema is specified in metadata.json if using GSettings
+        - Check getSettings() is called with correct schema ID
+        - Ensure GSettings schema files (.gschema.xml) are in schemas subdirectory
+        - Verify schema ID follows org.gnome.shell.extensions.* pattern
+        - Check that settings objects are properly used in preferences
+        - Ensure GSettings schemas are compiled in build process
+        - Verify settings bindings work correctly with UI widgets
+        
+        ## Build and Packaging
+        - Verify extension builds to dist or output folder, not directly to installation dir
+        - Check that build process includes: TypeScript compilation, schema compilation, file copying
+        - Ensure metadata.json is included in distribution
+        - Verify schemas folder is included if GSettings is used
+        - Check that locale folder is included if translations exist
+        - Ensure distribution zip contains only necessary files (no .ts files)
+        - Verify make install or similar copies to ~/.local/share/gnome-shell/extensions
+        - Check that make pack or similar creates proper distribution zip
+        - Ensure make clean removes generated files
+        - Verify version field is not manually set in metadata.json (E.G.O. manages it)
+        - Check that node_modules and TypeScript config files are not included in distribution
+        
+        ## Telemetry and Privacy
+        - Reject any telemetry tools that track users and share data online
+        - Flag any analytics or tracking code
+        
+        ## Code of Conduct
+        - Check extension name and description for CoC violations
+        - Verify text content, icons, emojis don't violate CoC
+        - Flag any content that could be considered harassment or discrimination
+        
+        ## Political Content
+        - Flag extensions that promote national or international political agendas
+        - Note that political content may be rejected to protect users under sanctions
+        
+        ## Licensing
+        - Verify extension is distributed under GPL-2.0-or-later compatible license
+        - Check for proper attribution if code is derived from other extensions
+        - Flag missing license files or unclear licensing
+        - Ensure permissive licenses (BSD/MIT) are properly documented
+        
+        ## Copyright and Trademarks
+        - Flag unauthorized use of brand names and phrases
+        - Check for copyrighted logos and artwork without permission
+        - Verify no unauthorized audio, video, or multimedia content
+        
+        ## File Cleanup
+        - Flag unnecessary build or install scripts
+        - Note presence of .po and .pot files that should be removed before distribution
+        - Check for unused icons, images, or media files
+        - Warn if extension includes unreasonable amounts of unnecessary data
+        - Flag inclusion of TypeScript source files in distribution
+        - Check for leftover development files (tsconfig.json, package.json in dist)
+
+    - path: "**/metadata.json"
+      instructions: |
+        ## metadata.json Validation
+        - Verify name doesn't conflict with existing extensions
+        - Check uuid format: extension-id@namespace with only alphanumeric, period, underscore, dash
+        - Reject use of gnome.org namespace
+        - Verify shell-version only contains stable releases and max one development release
+        - Check that shell-version doesn't claim support for future unreleased versions
+        - Ensure url points to GitHub/GitLab repository
+        - Verify session-modes is dropped if only using 'user' mode
+        - Check session-modes only contains 'user' or 'unlock-dialog'
+        - Verify donations object only contains valid keys or is dropped
+        - Flag deprecated 'version' field usage
+        
+        ## Session Modes
+        - For unlock-dialog mode: verify it's necessary for functionality
+        - Ensure keyboard event signals are disconnected in unlock-dialog mode
+        - Check disable() has comment explaining unlock-dialog usage
+        - Verify extensions don't disable selectively based on session mode
+        
+        ## GSettings Schemas
+        - Verify settings-schema is specified if extension uses GSettings
+        - Check Schema ID uses org.gnome.shell.extensions as base
+        - Ensure corresponding .gschema.xml file exists in schemas subdirectory
+        - Verify Schema XML filename follows pattern: <schema-id>.gschema.xml
+
+    - path: "**/*.gschema.xml"
+      instructions: |
+        ## GSettings Schema Validation (XML)
+        - Verify schema ID matches the one specified in metadata.json
+        - Check Schema ID uses org.gnome.shell.extensions.* pattern
+        - Ensure Schema ID is unique and descriptive (includes extension name)
+        - Verify Schema path uses /org/gnome/shell/extensions/* pattern
+        - Check that path matches the schema ID structure
+        - Ensure gettext-domain is set if extension uses translations
+        
+        ## Schema Structure
+        - Verify root element is <schemalist>
+        - Check that <schema> element has required id and path attributes
+        - Ensure each <key> element has name and type attributes
+        - Verify type attributes use valid GSettings type strings (b, i, d, s, as, etc.)
+        - Check that each key has a <default> child element
+        - Verify default values match the declared type
+        - Ensure <summary> is provided for each key (user-visible description)
+        
+        ## Key Definitions
+        - Check key names use kebab-case (lowercase with hyphens)
+        - Verify boolean types use 'b' and default to 'true' or 'false'
+        - Check integer types use appropriate precision (i, u, x, t, etc.)
+        - Verify string types use 's' and defaults are properly quoted
+        - Check array types use 'as', 'ai', etc. and default to valid array syntax
+        - Ensure enum types define valid choices if applicable
+        - Verify range constraints are valid for numeric types
+        
+        ## String Values
+        - Check that string defaults are properly escaped XML
+        - Verify quotes are XML entities (&apos; or &quot;) if needed
+        - Ensure multi-line strings are properly formatted
+        - Check for proper handling of special characters
+        
+        ## Array Types
+        - Verify array syntax: ['item1', 'item2'] for string arrays
+        - Check integer array syntax: [1, 2, 3]
+        - Ensure empty arrays use proper syntax: []
+        - Verify nested types for complex arrays (e.g., a(ss) for array of tuples)
+        
+        ## Enumeration Types
+        - Check if <choices> element is used for enum types
+        - Verify each <choice> has a valid value attribute
+        - Ensure enum type is 's' (string) in the key definition
+        - Check that default value is one of the defined choices
+        
+        ## Ranges and Constraints
+        - Verify <range> element for numeric types if constraints needed
+        - Check min and max attributes are valid for the type
+        - Ensure default value falls within the specified range
+        
+        ## Translations
+        - Verify gettext-domain is set in schema element if using translations
+        - Check that <summary> and <description> are translatable
+        - Ensure translation domain matches extension's gettext-domain
+        
+        ## Schema Compilation
+        - Note that schema must be compiled with glib-compile-schemas
+        - Verify schema compiles without errors before distribution
+        - Ensure compiled schema (gschemas.compiled) is included in distribution
+        - Check that schema is placed in schemas/ subdirectory of extension
+        
+        ## Best Practices
+        - Verify all keys have meaningful summaries
+        - Check that descriptions are provided for complex settings
+        - Ensure key names are descriptive and follow conventions
+        - Verify schema doesn't duplicate keys from other schemas
+        - Check that deprecated keys are properly marked if any
+        
+        ## Common Errors
+        - Flag missing closing tags
+        - Check for invalid type specifications
+        - Verify default values don't have syntax errors
+        - Ensure schema ID doesn't conflict with system schemas
+        - Flag missing path attribute
+        - Check for duplicate key names within schema
+
+chat:
+  auto_reply: true
