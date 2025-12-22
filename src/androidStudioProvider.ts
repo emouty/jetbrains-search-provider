@@ -17,15 +17,6 @@ export default class AndroidStudioProvider extends BaseJetBrainsProvider {
         super(extension, jetbrainsApp);
     }
 
-    /**
-     * Check if a project should be included for Android Studio.
-     *
-     * Android Studio only includes projects that have AndroidProjectSystem.xml
-     * in their .idea directory.
-     *
-     * @param {string} projectPath - Path to the project directory
-     * @returns {boolean} True if the project should be included
-     */
     protected shouldIncludeProject(projectPath: string): boolean {
         const androidSystemFile = GLib.build_filenamev([
             projectPath, '.idea', 'AndroidProjectSystem.xml'
@@ -35,14 +26,7 @@ export default class AndroidStudioProvider extends BaseJetBrainsProvider {
         return file.query_exists(null);
     }
 
-    /**
-     * Get additional config directory patterns to search.
-     *
-     * Android Studio should also check IntelliJ IDEA config directories
-     * since Android projects may be listed there.
-     *
-     * @returns {RegExp[]} Additional directory patterns to search
-     */
+
     protected getAdditionalConfigPatterns(): RegExp[] {
         return [
             new RegExp(`^\\.IntelliJIdea\\d{4}\\.\\d+`, 'i'),

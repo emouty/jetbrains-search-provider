@@ -23,12 +23,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     // Set by the SearchProvider interface
     display: unknown;
 
-    /**
-     * Create a new base JetBrains search provider.
-     *
-     * @param {Extension} extension - The GNOME Shell extension instance
-     * @param {JetBrainsApp} jetbrainsApp - The JetBrains application configuration
-     */
     constructor(extension: Extension, jetbrainsApp: JetBrainsApp) {
         this.extension = extension;
         this.jetbrainsApp = jetbrainsApp;
@@ -36,19 +30,9 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         this._loadProjects();
     }
 
-    /**
-     * Set the Shell.App instance for this JetBrains IDE.
-     *
-     * Attempts to find the JetBrains IDE application by searching desktop files
-     * using various patterns and fallback methods.
-     *
-     */
     private _setApp() {
-        // Try to find the specific JetBrains IDE application
-        // First try UUID-based desktop files (more reliable for JetBrains Toolbox)
         this.app = this._findJetBrainsAppByPattern();
 
-        // If UUID-based lookup failed, try standard IDs
         if (!this.app) {
             const standardAppIds = [
                 this.jetbrainsApp.exec,
@@ -66,14 +50,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
     }
 
-    /**
-     * Find JetBrains application by searching desktop files using patterns.
-     *
-     * Searches through .desktop files in the user's applications directory
-     * to find JetBrains IDE applications using filename patterns and content analysis.
-     *
-     * @returns {Shell.App | undefined} The found Shell.App or undefined
-     */
     private _findJetBrainsAppByPattern(): Shell.App | undefined {
         const homeDir = GLib.get_home_dir();
         const desktopDir = GLib.build_filenamev([homeDir, '.local', 'share', 'applications']);
@@ -88,50 +64,46 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 null
             );
 
-            let info;
-            while ((info = enumerator.next_file(null))) {
-                const filename = info.get_name();
-                if (!filename.endsWith('.desktop')) continue;
+            try {
+                let info;
+                while ((info = enumerator.next_file(null))) {
+                    const filename = info.get_name();
+                    if (!filename.endsWith('.desktop')) continue;
 
-                // Look for JetBrains desktop files
-                const lowerFilename = filename.toLowerCase();
-                if (lowerFilename.startsWith('jetbrains-')) {
-                    // Check filename patterns first for quick matching
-                    const filenameMatch = this._matchesFilenamePattern(lowerFilename);
+                    const lowerFilename = filename.toLowerCase();
+                    if (lowerFilename.startsWith('jetbrains-')) {
+                        const filenameMatch = this._matchesFilenamePattern(lowerFilename);
 
-                    if (filenameMatch) {
-                        const app = Shell.AppSystem.get_default().lookup_app(filename);
-                        if (app) {
-                            return app;
-                        }
-                    } else {
-                        // If filename doesn't match, check desktop file contents
-                        const contentMatch = this._matchesDesktopFileContent(desktopDir, filename);
-                        if (contentMatch) {
+                        if (filenameMatch) {
                             const app = Shell.AppSystem.get_default().lookup_app(filename);
                             if (app) {
                                 return app;
                             }
+                        } else {
+                            const contentMatch = this._matchesDesktopFileContent(desktopDir, filename);
+                            if (contentMatch) {
+                                const app = Shell.AppSystem.get_default().lookup_app(filename);
+                                if (app) {
+                                    return app;
+                                }
+                            }
                         }
                     }
                 }
+            } finally {
+                try {
+                    enumerator.close(null);
+                } catch (e) {
+                    console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
+                }
             }
         } catch (e) {
-            console.warn(`JetBrains Extension: Error searching for ${this.jetbrainsApp.name} desktop files: ${e}`);
+            console.warn(`JetBrains Search Provider: Error searching for ${this.jetbrainsApp.name} desktop files: ${e}`);
         }
 
         return undefined;
     }
 
-    /**
-     * Check if a desktop filename matches patterns for this JetBrains IDE.
-     *
-     * Uses IDE-specific filename patterns to quickly identify relevant desktop files
-     * without needing to read their contents.
-     *
-     * @param {string} lowerFilename - The lowercase filename to check
-     * @returns {boolean} True if the filename matches this IDE's patterns
-     */
     private _matchesFilenamePattern(lowerFilename: string): boolean {
         // Check filename patterns for each IDE
         switch (this.jetbrainsApp.exec) {
@@ -162,16 +134,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
     }
 
-    /**
-     * Check if a desktop file's content matches this JetBrains IDE.
-     *
-     * Reads the desktop file content and searches for IDE-specific names and patterns
-     * using regular expressions to identify the correct application.
-     *
-     * @param {string} desktopDir - The directory containing desktop files
-     * @param {string} filename - The desktop file name to check
-     * @returns {boolean} True if the desktop file content matches this IDE
-     */
     private _matchesDesktopFileContent(desktopDir: string, filename: string): boolean {
         try {
             const desktopFilePath = GLib.build_filenamev([desktopDir, filename]);
@@ -182,7 +144,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
             const text = new TextDecoder().decode(contents).toLowerCase();
 
-            // Create regex patterns to search for IDE names in the desktop file content
             const searchPatterns = [
                 this.jetbrainsApp.exec.toLowerCase(),
                 this.jetbrainsApp.name.toLowerCase(),
@@ -190,7 +151,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 this.jetbrainsApp.name.toLowerCase().replace(/\s+/g, '-')
             ];
 
-            // Special cases for IDE names that might appear differently in desktop files
             if (this.jetbrainsApp.exec === 'idea') {
                 searchPatterns.push('intellij', 'intellij idea', 'intellij-idea');
             } else if (this.jetbrainsApp.exec === 'android-studio') {
@@ -206,40 +166,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
     }
 
-    /**
-     * Hook method for subclasses to provide additional config directory patterns.
-     *
-     * Subclasses can override this to search additional config directories.
-     * For example, Android Studio also searches IntelliJ IDEA directories.
-     *
-     * @returns {RegExp[]} Additional directory patterns to search
-     */
     protected getAdditionalConfigPatterns(): RegExp[] {
         return [];
     }
 
-    /**
-     * Hook method for subclasses to filter projects.
-     *
-     * Subclasses can override this to include or exclude specific projects.
-     * For example, IntelliJ IDEA excludes Android projects, while Android Studio
-     * only includes Android projects.
-     *
-     * @param {string} _projectPath - Path to the project directory
-     * @returns {boolean} True if the project should be included
-     */
     protected shouldIncludeProject(_projectPath: string): boolean {
-        // By default, include all projects
         return true;
     }
 
-    /**
-     * Load JetBrains projects from the configuration directory.
-     *
-     * Scans the JetBrains config directory for IDE-specific subdirectories
-     * and parses recentProjects.xml files to discover available projects.
-     *
-     */
     private _loadProjects(): void {
         const homeDir = GLib.get_home_dir();
         const jetbrainsConfigDir = GLib.build_filenamev([homeDir, '.config', 'JetBrains']);
@@ -258,46 +192,43 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 null
             );
 
-            let info;
-            while ((info = enumerator.next_file(null))) {
-                const name = info.get_name();
-                const fileType = info.get_file_type();
-                if (fileType !== Gio.FileType.DIRECTORY) continue;
+            try {
+                let info;
+                while ((info = enumerator.next_file(null))) {
+                    const name = info.get_name();
+                    const fileType = info.get_file_type();
+                    if (fileType !== Gio.FileType.DIRECTORY) continue;
 
-                // Build patterns for this app's config directories
-                const patterns = [
-                    new RegExp(`^${this.jetbrainsApp.configDir.substring(1)}\\d{4}\\.\\d+`, 'i'),
-                    new RegExp(`^${this.jetbrainsApp.name.replace(/\s+/g, '')}\\d{4}\\.\\d+`, 'i'),
-                    new RegExp(`^${this.jetbrainsApp.name.replace(/\s+/g, '')}CE\\d{4}\\.\\d+`, 'i'),
-                    new RegExp(`^${this.jetbrainsApp.exec}IC\\d{4}\\.\\d+`, 'i'),
-                    new RegExp(`^_${this.jetbrainsApp.configDir.substring(1)}\\d{4}\\.\\d+`, 'i')
-                ];
+                    const patterns = [
+                        new RegExp(`^${this.jetbrainsApp.configDir.substring(1)}\\d{4}\\.\\d+`, 'i'),
+                        new RegExp(`^${this.jetbrainsApp.name.replace(/\s+/g, '')}\\d{4}\\.\\d+`, 'i'),
+                        new RegExp(`^${this.jetbrainsApp.name.replace(/\s+/g, '')}CE\\d{4}\\.\\d+`, 'i'),
+                        new RegExp(`^${this.jetbrainsApp.exec}IC\\d{4}\\.\\d+`, 'i'),
+                        new RegExp(`^_${this.jetbrainsApp.configDir.substring(1)}\\d{4}\\.\\d+`, 'i')
+                    ];
 
-                // Add any additional patterns from subclasses
-                patterns.push(...this.getAdditionalConfigPatterns());
+                    patterns.push(...this.getAdditionalConfigPatterns());
 
-                if (patterns.some(pattern => pattern.test(name))) {
-                    const recentProjectsPath = GLib.build_filenamev([
-                        jetbrainsConfigDir, name, 'options', 'recentProjects.xml'
-                    ]);
+                    if (patterns.some(pattern => pattern.test(name))) {
+                        const recentProjectsPath = GLib.build_filenamev([
+                            jetbrainsConfigDir, name, 'options', 'recentProjects.xml'
+                        ]);
 
-                    this._parseRecentProjects(recentProjectsPath);
+                        this._parseRecentProjects(recentProjectsPath);
+                    }
+                }
+            } finally {
+                try {
+                    enumerator.close(null);
+                } catch (e) {
+                    console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
                 }
             }
         } catch (e) {
-            console.warn(`JetBrains Extension: Error reading ${jetbrainsConfigDir} for ${this.jetbrainsApp.name}: ${e}`);
+            console.warn(`JetBrains Search Provider: Error reading ${jetbrainsConfigDir} for ${this.jetbrainsApp.name}: ${e}`);
         }
     }
 
-    /**
-     * Parse a recentProjects.xml file to extract project information.
-     *
-     * Reads and parses the XML file using regex to extract project paths,
-     * validates that the projects exist, and creates JetBrainsProject instances.
-     * Uses the shouldIncludeProject() hook to filter projects.
-     *
-     * @param {string} xmlPath - Path to the recentProjects.xml file
-     */
     private _parseRecentProjects(xmlPath: string): void {
         const file = Gio.File.new_for_path(xmlPath);
         if (!file.query_exists(null)) {
@@ -323,7 +254,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
                 const projectFile = Gio.File.new_for_path(projectPath);
                 if (projectFile.query_exists(null)) {
-                    // Use the hook method to check if this project should be included
                     if (!this.shouldIncludeProject(projectPath)) {
                         continue;
                     }
@@ -344,64 +274,29 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             }
 
         } catch (e) {
-            console.warn(`JetBrains Extension: Error parsing ${xmlPath}: ${e}`);
+            console.warn(`JetBrains Search Provider: Error parsing ${xmlPath}: ${e}`);
         }
     }
 
-    /**
-     * Generate a unique identifier for a project.
-     *
-     * Creates a unique string ID by combining the IDE executable name
-     * with the project path (with slashes replaced by underscores).
-     *
-     * @param {JetBrainsProject} project - The project to generate an ID for
-     * @returns {string} A unique project identifier
-     */
     private _getProjectId(project: JetBrainsProject): string {
         return `${this.jetbrainsApp.exec}-${project.path.replace(/\//g, '_')}`;
     }
 
-    /**
-     * Whether the provider offers detailed results.
-     *
-     * JetBrains providers don't offer a separate detailed search interface,
-     * so this always returns false.
-     *
-     * @type {boolean}
-     */
     get canLaunchSearch(): boolean {
         return false;
     }
 
     // noinspection JSUnusedGlobalSymbols
-    /**
-     * The unique ID of the provider.
-     *
-     * Returns a unique identifier combining the extension UUID with the
-     * JetBrains application executable name.
-     *
-     * @type {string}
-     */
     get id(): string {
         return `${this.extension.uuid}-${this.jetbrainsApp.exec}`;
     }
 
     // noinspection JSUnusedGlobalSymbols
-    /**
-     * The application of the provider.
-     *
-     * Returns a `Gio.AppInfo` representing the JetBrains IDE this provider
-     * handles. This is used for grouping search results by application.
-     * If no actual app is found, creates a fallback AppInfo object.
-     *
-     * @type {Gio.AppInfo}
-     */
     get appInfo(): Gio.AppInfo {
         if (this.app && this.app.get_app_info()) {
             return this.app.get_app_info() as unknown as Gio.AppInfo;
         }
 
-        // Create a minimal app info for grouping purposes with unique identity
         const uniqueId = `jetbrains-${this.jetbrainsApp.exec}-${this.jetbrainsApp.name.toLowerCase().replace(/\s+/g, '-')}`;
         return {
             get_name: () => this.jetbrainsApp.name,
@@ -417,16 +312,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         } as Gio.AppInfo;
     }
 
-    /**
-     * Create a fallback icon for the JetBrains IDE.
-     *
-     * Attempts to load the IDE icon from the JetBrains Toolbox directory.
-     * Returns null if the icon cannot be found or loaded.
-     *
-     * @returns {Gio.Icon | null} The IDE icon or null if not found
-     */
     private _createFallbackIcon(): Gio.Icon | null {
-        // Try to get the IDE icon from Toolbox
         const homeDir = GLib.get_home_dir();
         const iconPath = GLib.build_filenamev([
             homeDir, '.local', 'share', 'JetBrains', 'Toolbox', 'apps',
@@ -438,7 +324,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             try {
                 return new Gio.FileIcon({file: iconFile});
             } catch (e) {
-                console.warn(`JetBrains Extension: Could not create fallback icon: ${e}`);
+                console.warn(`JetBrains Search Provider: Could not create fallback icon: ${e}`);
             }
         }
         return null;
@@ -465,36 +351,29 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         const lowerName = projectName.toLowerCase();
         const lowerSearch = searchTerm.toLowerCase();
 
-        // No match
         if (!lowerName.includes(lowerSearch)) {
             return 0;
         }
 
-        // Exact match
         if (lowerName === lowerSearch) {
             return 1000;
         }
 
-        // Split project name by common separators
         const nameParts = lowerName.split(/[-_\s.]+/);
 
-        // Check if search term matches a complete word/part
         if (nameParts.includes(lowerSearch)) {
             return 900;
         }
 
-        // Check if search term starts any word/part
         const startsWord = nameParts.some(part => part.startsWith(lowerSearch));
         if (startsWord) {
             return 800;
         }
 
-        // Check if search term appears at the start of the full name
         if (lowerName.startsWith(lowerSearch)) {
             return 500;
         }
 
-        // Search term appears somewhere in the name
         return 100;
     }
 
@@ -562,7 +441,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     async getSubsearchResultSet(previousResults: string[], terms: string[], _cancellable: Gio.Cancellable): Promise<string[]> {
         const searchTerm = terms.join("").toLowerCase();
 
-        // Score and filter previous results
         const scoredResults = previousResults
             .map(id => {
                 const project = this.projects.find(p => this._getProjectId(p) === id);
@@ -616,10 +494,8 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             }
 
 
-            // Use project icon first, fallback to app icon if project icon fails
             const createIcon = (size: number) => {
                 try {
-                    // Try to create project icon first
                     const projectIcon = project.createIcon(size, scaleFactor);
                     if (projectIcon) {
                         return projectIcon;
@@ -628,7 +504,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                     // Silently fall back to app icon
                 }
 
-                // Fallback to app icon if project icon fails
                 if (this.app && this.app.get_app_info()) {
                     const appInfo = this.app.get_app_info();
                     const icon = appInfo.get_icon();
@@ -641,7 +516,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                     }
                 }
 
-                // Final fallback to a generic icon
                 return new St.Icon({
                     icon_name: 'application-x-executable-symbolic',
                     icon_size: size
@@ -690,25 +564,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
     }
 
-    /**
-     * Launch the search provider.
-     *
-     * This method is called when a search provider is activated. Since JetBrains
-     * providers don't support launching detailed search interfaces, this method
-     * does nothing.
-     *
-     * @param {string[]} _terms - The search terms (unused)
-     */
     // noinspection JSUnusedGlobalSymbols
     launchSearch(_terms: string[]): void {
-        // JetBrains providers don't support detailed search interfaces
     }
 
     /**
-     * Create a result object.
      *
      * This method is called to create an actor to represent a search result.
-     * JetBrains providers use the default implementation and return null.
+     * JetBrains providers use the default implementation.
      *
      * @param {ResultMeta} _meta - A result metadata object
      * @returns {null} Always returns null to use the default implementation

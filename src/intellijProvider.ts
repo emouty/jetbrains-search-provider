@@ -17,15 +17,6 @@ export default class IntelliJProvider extends BaseJetBrainsProvider {
         super(extension, jetbrainsApp);
     }
 
-    /**
-     * Check if a project should be included for IntelliJ IDEA.
-     *
-     * IntelliJ IDEA excludes Android Studio projects, which are identified
-     * by the presence of AndroidProjectSystem.xml in the .idea directory.
-     *
-     * @param {string} projectPath - Path to the project directory
-     * @returns {boolean} True if the project should be included
-     */
     protected shouldIncludeProject(projectPath: string): boolean {
         const androidSystemFile = GLib.build_filenamev([
             projectPath, '.idea', 'AndroidProjectSystem.xml'

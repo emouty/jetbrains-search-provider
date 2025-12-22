@@ -20,7 +20,6 @@ export class JetBrainsProject {
     }
 
     launch(): void {
-        // Try different launch methods in order of preference
         const launchMethods = [
             this._launchViaToolbox.bind(this),
             this._launchViaDesktopFile.bind(this),
@@ -29,11 +28,11 @@ export class JetBrainsProject {
 
         for (const method of launchMethods) {
             if (method()) {
-                return; // Successfully launched
+                return;
             }
         }
 
-        console.warn(`JetBrains Extension: Failed to launch ${this.appName} project ${this.name}`);
+        console.warn(`JetBrains Search Provider: Failed to launch ${this.appName} project ${this.name}`);
     }
 
     private _launchViaToolbox(): boolean {
@@ -56,12 +55,12 @@ export class JetBrainsProject {
                     try {
                         obj?.wait_finish(res);
                     } catch (e) {
-                        console.warn(`JetBrains Extension: Toolbox subprocess error for ${this.name}: ${e}`);
+                        console.warn(`JetBrains Search Provider: Toolbox subprocess error for ${this.name}: ${e}`);
                     }
                 });
                 return true;
             } catch (e) {
-                console.warn(`JetBrains Extension: Failed to launch via Toolbox executable ${executablePath}: ${e}`);
+                console.warn(`JetBrains Search Provider: Failed to launch via Toolbox executable ${executablePath}: ${e}`);
             }
         }
         return false;
@@ -109,7 +108,7 @@ export class JetBrainsProject {
                                 }
                             }
                         } catch (e) {
-                            console.warn(`JetBrains Extension: Error processing desktop file ${filename}: ${e}`);
+                            console.warn(`JetBrains Search Provider: Error processing desktop file ${filename}: ${e}`);
                         }
                     }
                 }
@@ -117,11 +116,11 @@ export class JetBrainsProject {
                 try {
                     enumerator.close(null);
                 } catch (e) {
-                    console.warn(`JetBrains Extension: Error closing enumerator: ${e}`);
+                    console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
                 }
             }
         } catch (e) {
-            console.warn(`JetBrains Extension: Error searching desktop files: ${e}`);
+            console.warn(`JetBrains Search Provider: Error searching desktop files: ${e}`);
         }
 
         return false;
@@ -137,12 +136,12 @@ export class JetBrainsProject {
                 try {
                     obj?.wait_finish(res);
                 } catch (e) {
-                    console.warn(`JetBrains Extension: System command subprocess error for ${this.name}: ${e}`);
+                    console.warn(`JetBrains Search Provider: System command subprocess error for ${this.name}: ${e}`);
                 }
             });
             return true;
         } catch (e) {
-            console.warn(`JetBrains Extension: Failed to launch via system command ${this.appExec}: ${e}`);
+            console.warn(`JetBrains Search Provider: Failed to launch via system command ${this.appExec}: ${e}`);
             return false;
         }
     }
@@ -170,7 +169,7 @@ export class JetBrainsProject {
             try {
                 return new Gio.FileIcon({file: iconFile});
             } catch (e) {
-                console.warn(`JetBrains Extension: Could not load Toolbox icon ${iconPath}: ${e}`);
+                console.warn(`JetBrains Search Provider: Could not load Toolbox icon ${iconPath}: ${e}`);
             }
         }
 
