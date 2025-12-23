@@ -15,7 +15,20 @@ export default class JetBrainsSearchProviderExtension extends Extension {
     enable() {
         this.settings = this.getSettings('org.gnome.shell.extensions.jetbrains-search');
 
+        // Initialize providers asynchronously
+        this._initializeProvidersAsync().catch(e => {
+            console.error(`JetBrains Search Provider: Failed to initialize: ${e}`);
+        });
+    }
+
+    private async _initializeProvidersAsync() {
+        const cancellable = new Gio.Cancellable();
+
         for (const jetbrainsApp of JETBRAINS_APPS) {
+            if (cancellable.is_cancelled()) {
+                break;
+            }
+
             let provider: BaseJetBrainsProvider;
             switch (jetbrainsApp.exec) {
                 case 'idea':
@@ -29,15 +42,21 @@ export default class JetBrainsSearchProviderExtension extends Extension {
                     break;
             }
 
-            if (provider.projects.length > 0) {
-                this.providers.push(provider);
-                Main.overview.searchController.addProvider(provider);
+            try {
+                await provider.initialize(cancellable);
 
-                if (this.settings?.get_boolean("override-results-order")) {
-                    const searchResults = Main.overview.searchController._searchResults;
-                    searchResults._content.remove_child(provider.display);
-                    searchResults._content.insert_child_at_index(provider.display, 1 + this.providers.length - 1);
+                if (provider.projects.length > 0) {
+                    this.providers.push(provider);
+                    Main.overview.searchController.addProvider(provider);
+
+                    if (this.settings?.get_boolean("override-results-order")) {
+                        const searchResults = Main.overview.searchController._searchResults;
+                        searchResults._content.remove_child(provider.display);
+                        searchResults._content.insert_child_at_index(provider.display, 1 + this.providers.length - 1);
+                    }
                 }
+            } catch (e) {
+                console.error(`JetBrains Search Provider: Failed to initialize ${jetbrainsApp.name} provider: ${e}`);
             }
         }
     }

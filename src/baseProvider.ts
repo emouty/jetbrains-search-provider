@@ -27,12 +27,38 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     constructor(extension: Extension, jetbrainsApp: JetBrainsApp) {
         this.extension = extension;
         this.jetbrainsApp = jetbrainsApp;
-        this._setApp();
-        this._loadProjects();
     }
 
-    private _setApp() {
-        this.app = this._findJetBrainsAppByPattern();
+    /**
+     * Initialize the provider by loading the app and projects asynchronously.
+     *
+     * This method should be called immediately after construction to complete
+     * the provider initialization. It performs asynchronous operations that
+     * cannot be done in the constructor.
+     *
+     * @async
+     * @param {Gio.Cancellable | null} cancellable - Optional cancellable for the operation
+     */
+    async initialize(cancellable: Gio.Cancellable | null = null): Promise<void> {
+        if (cancellable?.is_cancelled()) {
+            throw new Error('Initialization cancelled');
+        }
+
+        await this._setApp(cancellable);
+
+        if (cancellable?.is_cancelled()) {
+            throw new Error('Initialization cancelled');
+        }
+
+        await this._loadProjects(cancellable);
+    }
+
+    private async _setApp(cancellable: Gio.Cancellable | null = null): Promise<void> {
+        if (cancellable?.is_cancelled()) {
+            throw new Error('Operation cancelled');
+        }
+
+        this.app = await this._findJetBrainsAppByPattern(cancellable);
 
         if (!this.app) {
             const standardAppIds = [
@@ -51,7 +77,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
     }
 
-    private _findJetBrainsAppByPattern(cancellable: Gio.Cancellable | null = null): Shell.App | undefined {
+    private async _findJetBrainsAppByPattern(cancellable: Gio.Cancellable | null = null): Promise<Shell.App | undefined> {
         const homeDir = GLib.get_home_dir();
         const desktopDir = GLib.build_filenamev([homeDir, '.local', 'share', 'applications']);
 
@@ -179,7 +205,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    private _loadProjects(cancellable: Gio.Cancellable | null = null): void {
+    private async _loadProjects(cancellable: Gio.Cancellable | null = null): Promise<void> {
         const homeDir = GLib.get_home_dir();
         const jetbrainsConfigDir = GLib.build_filenamev([homeDir, '.config', 'JetBrains']);
 
@@ -200,6 +226,10 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             try {
                 let info;
                 while ((info = enumerator.next_file(cancellable))) {
+                    if (cancellable?.is_cancelled()) {
+                        throw new Error('Operation cancelled');
+                    }
+
                     const name = info.get_name();
                     const fileType = info.get_file_type();
                     if (fileType !== Gio.FileType.DIRECTORY) continue;
@@ -223,7 +253,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                             jetbrainsConfigDir, name, 'options', 'recentProjects.xml'
                         ]);
 
-                        this._parseRecentProjects(recentProjectsPath, cancellable);
+                        await this._parseRecentProjects(recentProjectsPath, cancellable);
                     }
                 }
             } finally {
@@ -234,11 +264,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 }
             }
         } catch (e) {
+            if (cancellable?.is_cancelled()) {
+                throw e;
+            }
             console.warn(`JetBrains Search Provider: Error reading ${jetbrainsConfigDir} for ${this.jetbrainsApp.name}: ${e}`);
         }
     }
 
-    private _parseRecentProjects(xmlPath: string, cancellable: Gio.Cancellable | null = null): void {
+    private async _parseRecentProjects(xmlPath: string, cancellable: Gio.Cancellable | null = null): Promise<void> {
         const file = Gio.File.new_for_path(xmlPath);
         if (!file.query_exists(cancellable)) {
             return;
@@ -255,6 +288,10 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             let match;
 
             while ((match = entryRegex.exec(text)) !== null) {
+                if (cancellable?.is_cancelled()) {
+                    throw new Error('Operation cancelled');
+                }
+
                 let projectPath = match[1];
 
                 if (!projectPath.startsWith('$USER_HOME$/')) continue;
@@ -283,6 +320,9 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             }
 
         } catch (e) {
+            if (cancellable?.is_cancelled()) {
+                throw e;
+            }
             console.warn(`JetBrains Search Provider: Error parsing ${xmlPath}: ${e}`);
         }
     }
