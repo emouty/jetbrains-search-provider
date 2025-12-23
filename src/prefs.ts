@@ -7,7 +7,7 @@ import {ExtensionPreferences, gettext as _,} from "resource:///org/gnome/Shell/E
 export default class JetBrainsPreferences extends ExtensionPreferences {
     _settings: Gio.Settings | null = null;
 
-    fillPreferencesWindow(window: Adw.PreferencesWindow) {
+    async fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {
         this._settings = this.getSettings('org.gnome.shell.extensions.jetbrains-search');
 
         const page = new Adw.PreferencesPage({
