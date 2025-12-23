@@ -35,7 +35,7 @@ export class JetBrainsProject {
         console.warn(`JetBrains Search Provider: Failed to launch ${this.appName} project ${this.name}`);
     }
 
-    private _launchViaToolbox(): boolean {
+    private _launchViaToolbox(cancellable: Gio.Cancellable | null = null): boolean {
         if (!this.toolboxDir) return false;
 
         const homeDir = GLib.get_home_dir();
@@ -45,13 +45,13 @@ export class JetBrainsProject {
         ]);
 
         const executableFile = Gio.File.new_for_path(executablePath);
-        if (executableFile.query_exists(null)) {
+        if (executableFile.query_exists(cancellable)) {
             try {
                 const subprocess = Gio.Subprocess.new(
                     [executablePath, this.path],
                     Gio.SubprocessFlags.NONE
                 );
-                subprocess.wait_async(null, (obj, res) => {
+                subprocess.wait_async(cancellable, (obj, res) => {
                     try {
                         obj?.wait_finish(res);
                     } catch (e) {
@@ -66,23 +66,23 @@ export class JetBrainsProject {
         return false;
     }
 
-    private _launchViaDesktopFile(): boolean {
+    private _launchViaDesktopFile(cancellable: Gio.Cancellable | null = null): boolean {
         const homeDir = GLib.get_home_dir();
         const desktopDir = GLib.build_filenamev([homeDir, '.local', 'share', 'applications']);
 
         try {
             const dirFile = Gio.File.new_for_path(desktopDir);
-            if (!dirFile.query_exists(null)) return false;
+            if (!dirFile.query_exists(cancellable)) return false;
 
             const enumerator = dirFile.enumerate_children(
                 'standard::name',
                 Gio.FileQueryInfoFlags.NONE,
-                null
+                cancellable
             );
 
             try {
                 let info;
-                while ((info = enumerator.next_file(null))) {
+                while ((info = enumerator.next_file(cancellable))) {
                     const filename = info.get_name();
                     if (!filename.endsWith('.desktop')) continue;
 
@@ -94,7 +94,7 @@ export class JetBrainsProject {
                         const desktopFile = Gio.File.new_for_path(desktopFilePath);
 
                         try {
-                            const [success, contents] = desktopFile.load_contents(null);
+                            const [success, contents] = desktopFile.load_contents(cancellable);
                             if (success) {
                                 const text = new TextDecoder().decode(contents);
                                 const execMatch = text.match(/^Exec=(.+)$/m);
@@ -108,7 +108,7 @@ export class JetBrainsProject {
                                         const [parsed, argv] = GLib.shell_parse_argv(execCommand);
                                         if (parsed && argv) {
                                             const subprocess = Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
-                                            subprocess.wait_async(null, (obj, res) => {
+                                            subprocess.wait_async(cancellable, (obj, res) => {
                                                 try {
                                                     obj?.wait_finish(res);
                                                 } catch (e) {
@@ -129,7 +129,7 @@ export class JetBrainsProject {
                 }
             } finally {
                 try {
-                    enumerator.close(null);
+                    enumerator.close(cancellable);
                 } catch (e) {
                     console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
                 }
@@ -141,13 +141,13 @@ export class JetBrainsProject {
         return false;
     }
 
-    private _launchViaSystemCommand(): boolean {
+    private _launchViaSystemCommand(cancellable: Gio.Cancellable | null = null): boolean {
         try {
             const subprocess = Gio.Subprocess.new(
                 [this.appExec, this.path],
                 Gio.SubprocessFlags.NONE
             );
-            subprocess.wait_async(null, (obj, res) => {
+            subprocess.wait_async(cancellable, (obj, res) => {
                 try {
                     obj?.wait_finish(res);
                 } catch (e) {
@@ -161,16 +161,16 @@ export class JetBrainsProject {
         }
     }
 
-    getProjectIconPath(): string | null {
+    getProjectIconPath(cancellable: Gio.Cancellable | null = null): string | null {
         const iconPath = GLib.build_filenamev([this.path, '.idea', 'icon.png']);
         const iconFile = Gio.File.new_for_path(iconPath);
-        if (iconFile.query_exists(null)) {
+        if (iconFile.query_exists(cancellable)) {
             return iconPath;
         }
         return null;
     }
 
-    private _getIdeIconFromToolbox(): Gio.Icon | null {
+    private _getIdeIconFromToolbox(cancellable: Gio.Cancellable | null = null): Gio.Icon | null {
         if (!this.toolboxDir || !this.iconFile) return null;
 
         const homeDir = GLib.get_home_dir();
@@ -180,7 +180,7 @@ export class JetBrainsProject {
         ]);
 
         const iconFile = Gio.File.new_for_path(iconPath);
-        if (iconFile.query_exists(null)) {
+        if (iconFile.query_exists(cancellable)) {
             try {
                 return new Gio.FileIcon({file: iconFile});
             } catch (e) {
@@ -191,8 +191,8 @@ export class JetBrainsProject {
         return null;
     }
 
-    createIcon(size: number, _scaleFactor: number): St.Icon {
-        const projectIconPath = this.getProjectIconPath();
+    createIcon(size: number, _scaleFactor: number, cancellable: Gio.Cancellable | null = null): St.Icon {
+        const projectIconPath = this.getProjectIconPath(cancellable);
         if (projectIconPath) {
             try {
                 const file = Gio.File.new_for_path(projectIconPath);
@@ -207,7 +207,7 @@ export class JetBrainsProject {
             }
         }
 
-        const ideIcon = this._getIdeIconFromToolbox();
+        const ideIcon = this._getIdeIconFromToolbox(cancellable);
         if (ideIcon) {
             return new St.Icon({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -50,23 +50,23 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
     }
 
-    private _findJetBrainsAppByPattern(): Shell.App | undefined {
+    private _findJetBrainsAppByPattern(cancellable: Gio.Cancellable | null = null): Shell.App | undefined {
         const homeDir = GLib.get_home_dir();
         const desktopDir = GLib.build_filenamev([homeDir, '.local', 'share', 'applications']);
 
         try {
             const dirFile = Gio.File.new_for_path(desktopDir);
-            if (!dirFile.query_exists(null)) return undefined;
+            if (!dirFile.query_exists(cancellable)) return undefined;
 
             const enumerator = dirFile.enumerate_children(
                 'standard::name',
                 Gio.FileQueryInfoFlags.NONE,
-                null
+                cancellable
             );
 
             try {
                 let info;
-                while ((info = enumerator.next_file(null))) {
+                while ((info = enumerator.next_file(cancellable))) {
                     const filename = info.get_name();
                     if (!filename.endsWith('.desktop')) continue;
 
@@ -80,7 +80,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                                 return app;
                             }
                         } else {
-                            const contentMatch = this._matchesDesktopFileContent(desktopDir, filename);
+                            const contentMatch = this._matchesDesktopFileContent(desktopDir, filename, cancellable);
                             if (contentMatch) {
                                 const app = Shell.AppSystem.get_default().lookup_app(filename);
                                 if (app) {
@@ -92,7 +92,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 }
             } finally {
                 try {
-                    enumerator.close(null);
+                    enumerator.close(cancellable);
                 } catch (e) {
                     console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
                 }
@@ -134,12 +134,12 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
     }
 
-    private _matchesDesktopFileContent(desktopDir: string, filename: string): boolean {
+    private _matchesDesktopFileContent(desktopDir: string, filename: string, cancellable: Gio.Cancellable | null = null): boolean {
         try {
             const desktopFilePath = GLib.build_filenamev([desktopDir, filename]);
             const desktopFile = Gio.File.new_for_path(desktopFilePath);
 
-            const [success, contents] = desktopFile.load_contents(null);
+            const [success, contents] = desktopFile.load_contents(cancellable);
             if (!success) return false;
 
             const text = new TextDecoder().decode(contents).toLowerCase();
@@ -178,14 +178,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    private _loadProjects(): void {
+    private _loadProjects(cancellable: Gio.Cancellable | null = null): void {
         const homeDir = GLib.get_home_dir();
         const jetbrainsConfigDir = GLib.build_filenamev([homeDir, '.config', 'JetBrains']);
 
         this.projects = [];
 
         const jetbrainsDir = Gio.File.new_for_path(jetbrainsConfigDir);
-        if (!jetbrainsDir.query_exists(null)) {
+        if (!jetbrainsDir.query_exists(cancellable)) {
             return;
         }
 
@@ -193,12 +193,12 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             const enumerator = jetbrainsDir.enumerate_children(
                 'standard::name,standard::type',
                 Gio.FileQueryInfoFlags.NONE,
-                null
+                cancellable
             );
 
             try {
                 let info;
-                while ((info = enumerator.next_file(null))) {
+                while ((info = enumerator.next_file(cancellable))) {
                     const name = info.get_name();
                     const fileType = info.get_file_type();
                     if (fileType !== Gio.FileType.DIRECTORY) continue;
@@ -222,12 +222,12 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                             jetbrainsConfigDir, name, 'options', 'recentProjects.xml'
                         ]);
 
-                        this._parseRecentProjects(recentProjectsPath);
+                        this._parseRecentProjects(recentProjectsPath, cancellable);
                     }
                 }
             } finally {
                 try {
-                    enumerator.close(null);
+                    enumerator.close(cancellable);
                 } catch (e) {
                     console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
                 }
@@ -237,14 +237,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
     }
 
-    private _parseRecentProjects(xmlPath: string): void {
+    private _parseRecentProjects(xmlPath: string, cancellable: Gio.Cancellable | null = null): void {
         const file = Gio.File.new_for_path(xmlPath);
-        if (!file.query_exists(null)) {
+        if (!file.query_exists(cancellable)) {
             return;
         }
 
         try {
-            const [success, contents] = file.load_contents(null);
+            const [success, contents] = file.load_contents(cancellable);
             if (!success) {
                 return;
             }
@@ -261,7 +261,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 projectPath = projectPath.replace('$USER_HOME$', GLib.get_home_dir());
 
                 const projectFile = Gio.File.new_for_path(projectPath);
-                if (projectFile.query_exists(null)) {
+                if (projectFile.query_exists(cancellable)) {
                     if (!this.shouldIncludeProject(projectPath)) {
                         continue;
                     }
@@ -320,7 +320,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         } as Gio.AppInfo;
     }
 
-    private _createFallbackIcon(): Gio.Icon | null {
+    private _createFallbackIcon(cancellable: Gio.Cancellable | null = null): Gio.Icon | null {
         const homeDir = GLib.get_home_dir();
         const iconPath = GLib.build_filenamev([
             homeDir, '.local', 'share', 'JetBrains', 'Toolbox', 'apps',
@@ -328,7 +328,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         ]);
 
         const iconFile = Gio.File.new_for_path(iconPath);
-        if (iconFile.query_exists(null)) {
+        if (iconFile.query_exists(cancellable)) {
             try {
                 return new Gio.FileIcon({file: iconFile});
             } catch (e) {
@@ -516,7 +516,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
             const createIcon = (size: number) => {
                 try {
-                    const projectIcon = project.createIcon(size, scaleFactor);
+                    const projectIcon = project.createIcon(size, scaleFactor, cancellable);
                     if (projectIcon) {
                         return projectIcon;
                     }
