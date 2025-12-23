@@ -198,8 +198,7 @@ export class JetBrainsProject {
                 const file = Gio.File.new_for_path(projectIconPath);
                 const gicon = new Gio.FileIcon({file: file});
                 return new St.Icon({
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    gicon: gicon as any,
+                    gicon: gicon,
                     icon_size: size
                 });
             } catch (e) {
@@ -210,8 +209,7 @@ export class JetBrainsProject {
         const ideIcon = this._getIdeIconFromToolbox(cancellable);
         if (ideIcon) {
             return new St.Icon({
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                gicon: ideIcon as any,
+                gicon: ideIcon,
                 icon_size: size
             });
         }

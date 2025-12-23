@@ -2,6 +2,7 @@ import St from "gi://St";
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 import Shell from "gi://Shell";
+import Clutter from "gi://Clutter";
 import {Extension} from "resource:///org/gnome/shell/extensions/extension.js";
 import {AppSearchProvider, ResultMeta} from "resource:///org/gnome/shell/ui/appDisplay.js";
 import {JetBrainsProject} from "./project.js";
@@ -302,7 +303,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     // noinspection JSUnusedGlobalSymbols
     get appInfo(): Gio.AppInfo {
         if (this.app && this.app.get_app_info()) {
-            return this.app.get_app_info() as unknown as Gio.AppInfo;
+            return this.app.get_app_info();
         }
 
         const uniqueId = `jetbrains-${this.jetbrainsApp.exec}-${this.jetbrainsApp.name.toLowerCase().replace(/\s+/g, '-')}`;
@@ -496,8 +497,8 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Operation cancelled');
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const {scaleFactor} = St.ThemeContext.get_for_stage((global as any).stage);
+        const globalObj = globalThis as unknown as { global: { stage: Clutter.Stage } };
+        const {scaleFactor} = St.ThemeContext.get_for_stage(globalObj.global.stage);
 
         return results.map(id => {
             const project = this.projects.find(p => this._getProjectId(p) === id);
@@ -529,8 +530,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                     const icon = appInfo.get_icon();
                     if (icon) {
                         return new St.Icon({
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            gicon: icon as any,
+                            gicon: icon,
                             icon_size: size
                         });
                     }

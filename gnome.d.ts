@@ -4,6 +4,9 @@ import "@girs/gnome-shell/ambient";
 import "@girs/gnome-shell/extensions/global";
 import {AppSearchProvider} from "resource:///org/gnome/shell/ui/appDisplay.js";
 import {Extension, ExtensionMetadata,} from "resource:///org/gnome/shell/extensions/extension.js";
+import Gio from "gi://Gio";
+import Shell from "gi://Shell";
+
 
 declare module "resource:///org/gnome/shell/ui/main.js" {
     export module overview {
