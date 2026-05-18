@@ -1,4 +1,5 @@
 import St from "gi://St";
+import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 import Shell from "gi://Shell";
@@ -20,8 +21,8 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     protected app: Shell.App | undefined;
     protected jetbrainsApp: JetBrainsApp;
 
-    // Set by the SearchProvider interface
-    display: unknown;
+    // Set by GNOME Shell's search framework when the provider is registered
+    display!: Clutter.Actor;
 
     constructor(extension: Extension, jetbrainsApp: JetBrainsApp) {
         this.extension = extension;
