@@ -1,0 +1,222 @@
+import St from 'gi://St';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+
+export class JetBrainsProject {
+    name: string;
+    path: string;
+    appName: string;
+    appExec: string;
+    toolboxDir: string;
+    iconFile: string;
+
+    constructor(name: string, path: string, appName: string, appExec: string, toolboxDir: string, iconFile: string) {
+        this.name = name;
+        this.path = path;
+        this.appName = appName;
+        this.appExec = appExec;
+        this.toolboxDir = toolboxDir;
+        this.iconFile = iconFile;
+    }
+
+    launch(): void {
+        const launchMethods = [
+            this._launchViaToolbox.bind(this),
+            this._launchViaDesktopFile.bind(this),
+            this._launchViaSystemCommand.bind(this)
+        ];
+
+        for (const method of launchMethods) {
+            if (method()) {
+                return;
+            }
+        }
+
+        console.warn(`JetBrains Search Provider: Failed to launch ${this.appName} project ${this.name}`);
+    }
+
+    private _launchViaToolbox(cancellable: Gio.Cancellable | null = null): boolean {
+        if (!this.toolboxDir) return false;
+
+        const homeDir = GLib.get_home_dir();
+        const executablePath = GLib.build_filenamev([
+            homeDir, '.local', 'share', 'JetBrains', 'Toolbox', 'apps',
+            this.toolboxDir, 'bin', this.appExec
+        ]);
+
+        const executableFile = Gio.File.new_for_path(executablePath);
+        if (executableFile.query_exists(cancellable)) {
+            try {
+                const subprocess = Gio.Subprocess.new(
+                    [executablePath, this.path],
+                    Gio.SubprocessFlags.NONE
+                );
+                subprocess.wait_async(cancellable, (obj, res) => {
+                    try {
+                        obj?.wait_finish(res);
+                    } catch (e) {
+                        console.warn(`JetBrains Search Provider: Toolbox subprocess error for ${this.name}: ${e}`);
+                    }
+                });
+                return true;
+            } catch (e) {
+                console.warn(`JetBrains Search Provider: Failed to launch via Toolbox executable ${executablePath}: ${e}`);
+            }
+        }
+        return false;
+    }
+
+    private _launchViaDesktopFile(cancellable: Gio.Cancellable | null = null): boolean {
+        const homeDir = GLib.get_home_dir();
+        const desktopDir = GLib.build_filenamev([homeDir, '.local', 'share', 'applications']);
+
+        try {
+            const dirFile = Gio.File.new_for_path(desktopDir);
+            if (!dirFile.query_exists(cancellable)) return false;
+
+            const enumerator = dirFile.enumerate_children(
+                'standard::name',
+                Gio.FileQueryInfoFlags.NONE,
+                cancellable
+            );
+
+            try {
+                let info;
+                while ((info = enumerator.next_file(cancellable))) {
+                    const filename = info.get_name();
+                    if (!filename.endsWith('.desktop')) continue;
+
+                    if (filename.includes('jetbrains') &&
+                        (filename.toLowerCase().includes(this.appExec.toLowerCase()) ||
+                            filename.toLowerCase().includes(this.appName.toLowerCase().replace(/\s+/g, '-')))) {
+
+                        const desktopFilePath = GLib.build_filenamev([desktopDir, filename]);
+                        const desktopFile = Gio.File.new_for_path(desktopFilePath);
+
+                        try {
+                            const [success, contents] = desktopFile.load_contents(cancellable);
+                            if (success) {
+                                const text = new TextDecoder().decode(contents);
+                                const execMatch = text.match(/^Exec=(.+)$/m);
+                                if (execMatch) {
+                                    let execCommand = execMatch[1];
+                                    // Replace %f, %F, %u, %U with the project path, safely shell-quoted
+                                    execCommand = execCommand.replace(/%[fFuU]/g, GLib.shell_quote(this.path));
+
+                                    try {
+                                        // Parse the command into argv and launch without invoking a shell
+                                        const [parsed, argv] = GLib.shell_parse_argv(execCommand);
+                                        if (parsed && argv) {
+                                            const subprocess = Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
+                                            subprocess.wait_async(cancellable, (obj, res) => {
+                                                try {
+                                                    obj?.wait_finish(res);
+                                                } catch (e) {
+                                                    console.warn(`JetBrains Search Provider: Desktop file subprocess error for ${this.name}: ${e}`);
+                                                }
+                                            });
+                                            return true;
+                                        }
+                                    } catch (e) {
+                                        console.warn(`JetBrains Search Provider: Failed to parse or launch desktop file command: ${e}`);
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.warn(`JetBrains Search Provider: Error processing desktop file ${filename}: ${e}`);
+                        }
+                    }
+                }
+            } finally {
+                try {
+                    enumerator.close(cancellable);
+                } catch (e) {
+                    console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
+                }
+            }
+        } catch (e) {
+            console.warn(`JetBrains Search Provider: Error searching desktop files: ${e}`);
+        }
+
+        return false;
+    }
+
+    private _launchViaSystemCommand(cancellable: Gio.Cancellable | null = null): boolean {
+        try {
+            const subprocess = Gio.Subprocess.new(
+                [this.appExec, this.path],
+                Gio.SubprocessFlags.NONE
+            );
+            subprocess.wait_async(cancellable, (obj, res) => {
+                try {
+                    obj?.wait_finish(res);
+                } catch (e) {
+                    console.warn(`JetBrains Search Provider: System command subprocess error for ${this.name}: ${e}`);
+                }
+            });
+            return true;
+        } catch (e) {
+            console.warn(`JetBrains Search Provider: Failed to launch via system command ${this.appExec}: ${e}`);
+            return false;
+        }
+    }
+
+    getProjectIconPath(cancellable: Gio.Cancellable | null = null): string | null {
+        const iconPath = GLib.build_filenamev([this.path, '.idea', 'icon.png']);
+        const iconFile = Gio.File.new_for_path(iconPath);
+        if (iconFile.query_exists(cancellable)) {
+            return iconPath;
+        }
+        return null;
+    }
+
+    private _getIdeIconFromToolbox(cancellable: Gio.Cancellable | null = null): Gio.Icon | null {
+        if (!this.toolboxDir || !this.iconFile) return null;
+
+        const homeDir = GLib.get_home_dir();
+        const iconPath = GLib.build_filenamev([
+            homeDir, '.local', 'share', 'JetBrains', 'Toolbox', 'apps',
+            this.toolboxDir, 'bin', this.iconFile
+        ]);
+
+        const iconFile = Gio.File.new_for_path(iconPath);
+        if (iconFile.query_exists(cancellable)) {
+            try {
+                return new Gio.FileIcon({file: iconFile});
+            } catch (e) {
+                console.warn(`JetBrains Search Provider: Could not load Toolbox icon ${iconPath}: ${e}`);
+            }
+        }
+
+        return null;
+    }
+
+    createIcon(size: number, _scaleFactor: number, cancellable: Gio.Cancellable | null = null): St.Icon {
+        const projectIconPath = this.getProjectIconPath(cancellable);
+        if (projectIconPath) {
+            try {
+                const file = Gio.File.new_for_path(projectIconPath);
+                const gicon = new Gio.FileIcon({file: file});
+                return new St.Icon({
+                    gicon: gicon,
+                    icon_size: size
+                });
+            } catch (e) {
+                // Silently fall back to IDE icon
+            }
+        }
+
+        const ideIcon = this._getIdeIconFromToolbox(cancellable);
+        if (ideIcon) {
+            return new St.Icon({
+                gicon: ideIcon,
+                icon_size: size
+            });
+        }
+
+        return new St.Icon({
+            icon_name: 'folder-symbolic',
+            icon_size: size
+        });
+    }
+}

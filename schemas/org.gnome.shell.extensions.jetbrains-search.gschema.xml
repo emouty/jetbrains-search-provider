@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+    <schema id="org.gnome.shell.extensions.jetbrains-search"
+            path="/org/gnome/shell/extensions/jetbrains-search/">
+        <key name="override-results-order" type="b">
+            <default>false</default>
+            <summary>Override default search results order to prioritize JetBrains</summary>
+            <description>Boolean value indicating whether to override the default search results order to prioritize
+                JetBrains. Requires disabling and re-enabling the extension to take effect.
+            </description>
+        </key>
+    </schema>
+</schemalist>
