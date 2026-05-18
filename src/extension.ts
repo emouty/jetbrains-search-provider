@@ -11,18 +11,18 @@ import {JETBRAINS_APPS} from "./jetBrainsApp.js";
 export default class JetBrainsSearchProviderExtension extends Extension {
     providers: AppSearchProvider[] = [];
     settings: Gio.Settings | null = null;
+    private _initCancellable: Gio.Cancellable | null = null;
 
     enable() {
         this.settings = this.getSettings('org.gnome.shell.extensions.jetbrains-search');
+        this._initCancellable = new Gio.Cancellable();
 
-        // Initialize providers asynchronously
-        this._initializeProvidersAsync().catch(e => {
+        this._initializeProvidersAsync(this._initCancellable).catch(e => {
             console.error(`JetBrains Search Provider: Failed to initialize: ${e}`);
         });
     }
 
-    private async _initializeProvidersAsync() {
-        const cancellable = new Gio.Cancellable();
+    private async _initializeProvidersAsync(cancellable: Gio.Cancellable) {
 
         for (const jetbrainsApp of JETBRAINS_APPS) {
             if (cancellable.is_cancelled()) {
@@ -52,7 +52,7 @@ export default class JetBrainsSearchProviderExtension extends Extension {
                     if (this.settings?.get_boolean("override-results-order")) {
                         const searchResults = Main.overview.searchController._searchResults;
                         searchResults._content.remove_child(provider.display);
-                        searchResults._content.insert_child_at_index(provider.display, 1 + this.providers.length - 1);
+                        searchResults._content.insert_child_at_index(provider.display, this.providers.length);
                     }
                 }
             } catch (e) {
@@ -62,9 +62,9 @@ export default class JetBrainsSearchProviderExtension extends Extension {
     }
 
     disable() {
-        if (this.settings) {
-            this.settings = null;
-        }
+        this._initCancellable?.cancel();
+        this._initCancellable = null;
+        this.settings = null;
 
         for (const provider of this.providers) {
             Main.overview.searchController.removeProvider(provider);

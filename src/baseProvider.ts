@@ -2,7 +2,6 @@ import St from "gi://St";
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 import Shell from "gi://Shell";
-import Clutter from "gi://Clutter";
 import {Extension} from "resource:///org/gnome/shell/extensions/extension.js";
 import {AppSearchProvider, ResultMeta} from "resource:///org/gnome/shell/ui/appDisplay.js";
 import {JetBrainsProject} from "./project.js";
@@ -355,10 +354,19 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             get_executable: () => this.jetbrainsApp.exec,
             get_commandline: () => this.jetbrainsApp.exec,
             get_id: () => uniqueId,
-            equal: (other: Gio.AppInfo) => {
-                return other && other.get_id && other.get_id() === uniqueId;
-            }
-        } as Gio.AppInfo;
+            equal: (other: Gio.AppInfo) => other && other.get_id && other.get_id() === uniqueId,
+            should_show: () => true,
+            get_categories: () => null,
+            get_keywords: () => [],
+            launch: () => false,
+            launch_uris: () => false,
+            launch_uris_async: () => {},
+            supports_files: () => false,
+            supports_uris: () => false,
+            can_delete: () => false,
+            delete: () => false,
+            dup: () => null,
+        } as unknown as Gio.AppInfo;
     }
 
     private _createFallbackIcon(cancellable: Gio.Cancellable | null = null): Gio.Icon | null {
@@ -396,33 +404,21 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * @param {string} searchTerm - The search term to match
      * @returns {number} The match score
      */
-    private _calculateSearchScore(projectName: string, searchTerm: string): number {
-        const lowerName = projectName.toLowerCase();
-        const lowerSearch = searchTerm.toLowerCase();
+    private _calculateSearchScore(projectName: string, terms: string[]): number {
+        // Normalize both name and query: collapse any separator (-, _, space, .) into a space.
+        // This lets "server archiver" (two GNOME terms) match "server-archiver".
+        const normalize = (s: string) => s.toLowerCase().replace(/[-_\s.]+/g, ' ').trim();
 
-        if (!lowerName.includes(lowerSearch)) {
-            return 0;
-        }
+        const normalizedName = normalize(projectName);
+        const searchTerm = normalize(terms.join(' '));
 
-        if (lowerName === lowerSearch) {
-            return 1000;
-        }
+        if (!normalizedName.includes(searchTerm)) return 0;
+        if (normalizedName === searchTerm) return 1000;
 
-        const nameParts = lowerName.split(/[-_\s.]+/);
-
-        if (nameParts.includes(lowerSearch)) {
-            return 900;
-        }
-
-        const startsWord = nameParts.some(part => part.startsWith(lowerSearch));
-        if (startsWord) {
-            return 800;
-        }
-
-        if (lowerName.startsWith(lowerSearch)) {
-            return 500;
-        }
-
+        const nameParts = normalizedName.split(' ');
+        if (nameParts.includes(searchTerm)) return 900;
+        if (nameParts.some(p => p.startsWith(searchTerm))) return 800;
+        if (normalizedName.startsWith(searchTerm)) return 500;
         return 100;
     }
 
@@ -453,13 +449,11 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Search cancelled');
         }
 
-        const searchTerm = terms.join("").toLowerCase();
-
         // Score and filter projects
         const scoredProjects = this.projects
             .map(project => ({
                 project,
-                score: this._calculateSearchScore(project.name, searchTerm)
+                score: this._calculateSearchScore(project.name, terms)
             }))
             .filter(item => item.score > 0)
             .sort((a, b) => {
@@ -496,26 +490,21 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Search cancelled');
         }
 
-        const searchTerm = terms.join("").toLowerCase();
-
         const scoredResults = previousResults
             .map(id => {
                 const project = this.projects.find(p => this._getProjectId(p) === id);
                 if (!project) return null;
 
-                const score = this._calculateSearchScore(project.name, searchTerm);
+                const score = this._calculateSearchScore(project.name, terms);
                 return score > 0 ? {id, project, score} : null;
             })
-            .filter(item => item !== null)
+            .filter((item): item is NonNullable<typeof item> => item !== null)
             .sort((a, b) => {
-                // Sort by score (descending), then by name (ascending)
-                if (a!.score !== b!.score) {
-                    return b!.score - a!.score;
-                }
-                return a!.project.name.localeCompare(b!.project.name);
+                if (a.score !== b.score) return b.score - a.score;
+                return a.project.name.localeCompare(b.project.name);
             });
 
-        return scoredResults.map(item => item!.id);
+        return scoredResults.map(item => item.id);
     }
 
     /**
@@ -537,8 +526,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Operation cancelled');
         }
 
-        const globalObj = globalThis as unknown as { global: { stage: Clutter.Stage } };
-        const {scaleFactor} = St.ThemeContext.get_for_stage(globalObj.global.stage);
+        const {scaleFactor} = St.ThemeContext.get_for_stage(Shell.Global.get().stage);
 
         return results.map(id => {
             const project = this.projects.find(p => this._getProjectId(p) === id);
