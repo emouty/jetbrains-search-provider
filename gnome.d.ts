@@ -6,10 +6,9 @@ import {AppSearchProvider} from "resource:///org/gnome/shell/ui/appDisplay.js";
 import {Extension,} from "resource:///org/gnome/shell/extensions/extension.js";
 import Gio from "gi://Gio";
 
-
 declare module "resource:///org/gnome/shell/ui/main.js" {
-    export module overview {
-        export module searchController {
+    export namespace overview {
+        export namespace searchController {
             export function addProvider(provider: AppSearchProvider): void;
 
             export function removeProvider(provider: AppSearchProvider): void;
