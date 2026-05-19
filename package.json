@@ -26,15 +26,12 @@
     "install-extension": "gnome-extensions install ${npm_package_name}.zip --force",
     "setup": "npm run pack && npm run install-extension",
     "debug": "dbus-run-session -- gnome-shell --devkit --wayland",
-    "prepare": "simple-git-hooks",
-    "test": "node --loader ./tests/mocks/loader.js --loader tsm node_modules/.bin/uvu ./tests \\.spec\\.js$"
+    "test": "vitest run"
   },
   "release": {
     "branches": [
       "master"
     ]
-  },
-  "simple-git-hooks": {
   },
   "lint-staged": {
     "*": "eslint --fix"
@@ -50,10 +47,8 @@
     "globals": "15.2.0",
     "lint-staged": "15.2.2",
     "semantic-release": "23.1.1",
-    "simple-git-hooks": "2.11.1",
-    "tsm": "2.3.0",
     "typescript": "5.4.5",
     "typescript-eslint": "7.8.0",
-    "uvu": "0.5.6"
+    "vitest": "4.1.6"
   }
 }
