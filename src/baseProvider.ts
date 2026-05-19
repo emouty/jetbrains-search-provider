@@ -405,22 +405,29 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * @param {string} searchTerm - The search term to match
      * @returns {number} The match score
      */
-    private _calculateSearchScore(projectName: string, terms: string[]): number {
-        // Normalize both name and query: collapse any separator (-, _, space, .) into a space.
+    private _calculateSearchScore(projectName: string, projectPath: string, terms: string[]): number {
+        // Normalize: collapse any separator (-, _, space, .) into a space.
         // This lets "server archiver" (two GNOME terms) match "server-archiver".
         const normalize = (s: string) => s.toLowerCase().replace(/[-_\s.]+/g, ' ').trim();
 
         const normalizedName = normalize(projectName);
         const searchTerm = normalize(terms.join(' '));
 
-        if (!normalizedName.includes(searchTerm)) return 0;
-        if (normalizedName === searchTerm) return 1000;
+        if (normalizedName.includes(searchTerm)) {
+            if (normalizedName === searchTerm) return 1000;
+            const nameParts = normalizedName.split(' ');
+            if (nameParts.includes(searchTerm)) return 900;
+            if (nameParts.some(p => p.startsWith(searchTerm))) return 800;
+            if (normalizedName.startsWith(searchTerm)) return 500;
+            return 100;
+        }
 
-        const nameParts = normalizedName.split(' ');
-        if (nameParts.includes(searchTerm)) return 900;
-        if (nameParts.some(p => p.startsWith(searchTerm))) return 800;
-        if (normalizedName.startsWith(searchTerm)) return 500;
-        return 100;
+        // Path match: lower score so name matches always rank higher.
+        // Normalize path separators too so "work/backend" → "work backend".
+        const normalizedPath = projectPath.toLowerCase().replace(/[-_\s./]+/g, ' ').trim();
+        if (normalizedPath.includes(searchTerm)) return 50;
+
+        return 0;
     }
 
     /**
@@ -454,7 +461,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         const scoredProjects = this.projects
             .map(project => ({
                 project,
-                score: this._calculateSearchScore(project.name, terms)
+                score: this._calculateSearchScore(project.name, project.path, terms)
             }))
             .filter(item => item.score > 0)
             .sort((a, b) => {
@@ -496,7 +503,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 const project = this.projects.find(p => this._getProjectId(p) === id);
                 if (!project) return null;
 
-                const score = this._calculateSearchScore(project.name, terms);
+                const score = this._calculateSearchScore(project.name, project.path, terms);
                 return score > 0 ? {id, project, score} : null;
             })
             .filter((item): item is NonNullable<typeof item> => item !== null)
