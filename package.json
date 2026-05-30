@@ -37,13 +37,13 @@
     "*": "eslint --fix"
   },
   "devDependencies": {
-    "@eslint/js": "9.2.0",
+    "@eslint/js": "10.0.1",
     "@girs/gjs": "4.0.0-beta.38",
     "@girs/gnome-shell": "49.1.0",
     "@types/node": "20.14.2",
     "bumpp": "9.4.1",
     "esbuild": "0.25.0",
-    "eslint": "8.57.0",
+    "eslint": "10.4.1",
     "globals": "15.2.0",
     "lint-staged": "15.2.2",
     "semantic-release": "23.1.1",
