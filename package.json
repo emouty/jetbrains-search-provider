@@ -40,7 +40,7 @@
     "@eslint/js": "9.2.0",
     "@girs/gjs": "4.0.0-beta.38",
     "@girs/gnome-shell": "49.1.0",
-    "@types/node": "20.14.2",
+    "@types/node": "20.19.42",
     "bumpp": "9.4.1",
     "esbuild": "0.25.0",
     "eslint": "8.57.0",
