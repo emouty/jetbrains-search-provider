@@ -201,7 +201,7 @@ export class JetBrainsProject {
                     gicon: gicon,
                     icon_size: size
                 });
-            } catch (e) {
+            } catch {
                 // Silently fall back to IDE icon
             }
         }

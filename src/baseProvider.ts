@@ -188,7 +188,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 const regex = new RegExp(`\\b${this._escapeRegex(pattern)}\\b`, 'i');
                 return regex.test(text);
             });
-        } catch (e) {
+        } catch {
             return false;
         }
     }
@@ -557,7 +557,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                     if (projectIcon) {
                         return projectIcon;
                     }
-                } catch (e) {
+                } catch {
                     // Silently fall back to app icon
                 }
 
