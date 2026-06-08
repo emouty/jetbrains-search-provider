@@ -41,7 +41,7 @@
     "@girs/gjs": "4.0.4",
     "@girs/gnome-shell": "50.0.0",
     "@types/node": "24.13.1",
-    "bumpp": "9.4.1",
+    "bumpp": "11.1.0",
     "esbuild": "0.25.0",
     "eslint": "8.57.0",
     "globals": "15.2.0",
