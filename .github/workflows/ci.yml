@@ -35,10 +35,5 @@ jobs:
       - name: Ensure packaging tools
         run: sudo apt-get install -y libglib2.0-bin zip
 
+      # Validates packaging works; the zip is published on release (see release.yml).
       - run: npm run pack
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: jetbrains-search-provider
-          path: jetbrains-search-provider.zip
-          if-no-files-found: error
