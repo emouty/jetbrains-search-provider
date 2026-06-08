@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import type Gio from 'gi://Gio';
+import type { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import BaseJetBrainsProvider from '../src/baseProvider.js';
 import { JetBrainsProject } from '../src/project.js';
 import type { JetBrainsApp } from '../src/jetBrainsApp.js';
@@ -11,9 +13,9 @@ const ideaApp: JetBrainsApp = {
     iconFile: 'idea.svg',
 };
 
-const fakeExtension = { uuid: 'jetbrains-search@test' } as any;
-const neverCancelled = { is_cancelled: () => false } as any;
-const cancelled = { is_cancelled: () => true } as any;
+const fakeExtension = { uuid: 'jetbrains-search@test' } as unknown as Extension;
+const neverCancelled = { is_cancelled: () => false } as unknown as Gio.Cancellable;
+const cancelled = { is_cancelled: () => true } as unknown as Gio.Cancellable;
 
 function makeProvider(projects: JetBrainsProject[]): BaseJetBrainsProvider {
     const p = new BaseJetBrainsProvider(fakeExtension, ideaApp);
