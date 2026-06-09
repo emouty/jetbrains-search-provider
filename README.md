@@ -36,6 +36,18 @@ Access extension preferences through:
 
 - **Override Results Order**: Prioritize JetBrains projects in search results
 
+## Installation
+
+zip archive of the latest release from the [releases page](https://github.com/emouty/jetbrains-search-provider/releases)
+and install it using the command line:
+
+```bash
+gnome-extensions install --force jetbrains-search-provider.zip
+gnome-extensions enable jetbrains-search@emouty.github.com
+```
+
+Then restart GNOME Shell with by log out/log back in (Wayland).
+
 ## Development
 
 ### Prerequisites

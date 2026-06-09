@@ -1,11 +1,12 @@
-changelog:
-  categories:
-    - title: 🚀 Features
-      labels:
-        - '*'
-      exclude:
-        labels:
-          - renovate
-    - title: 🛠️ Dependencies
-      labels:
-        - renovate
+categories:
+  - title: 🚀 Features
+    labels:
+      - '*'
+    exclude:
+      authors:
+        - 'renovate[bot]'
+        - 'renovate'
+  - title: 🛠️ Dependencies
+    authors:
+      - 'renovate[bot]'
+      - 'renovate'
