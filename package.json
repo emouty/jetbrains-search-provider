@@ -28,11 +28,6 @@
     "debug": "dbus-run-session -- gnome-shell --devkit --wayland",
     "test": "vitest run"
   },
-  "release": {
-    "branches": [
-      "master"
-    ]
-  },
   "lint-staged": {
     "*": "eslint --fix"
   },
