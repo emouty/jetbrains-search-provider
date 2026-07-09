@@ -8,6 +8,7 @@ import {AppSearchProvider, ResultMeta} from "resource:///org/gnome/shell/ui/appD
 import {JetBrainsProject} from "./project.js";
 import {JetBrainsApp} from "./jetBrainsApp.js";
 import {calculateSearchScore, normalizeForSearch, normalizePathForSearch} from "./searchScoring.js";
+import {escapeRegex, findJetBrainsApp} from "./appDiscovery.js";
 
 /**
  * Base JetBrains Search Provider for GNOME Shell
@@ -45,7 +46,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Initialization cancelled');
         }
 
-        await this._setApp(cancellable);
+        this.app = findJetBrainsApp(this.jetbrainsApp, cancellable);
 
         if (cancellable?.is_cancelled()) {
             throw new Error('Initialization cancelled');
@@ -54,156 +55,12 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         await this._loadProjects(cancellable);
     }
 
-    private async _setApp(cancellable: Gio.Cancellable | null = null): Promise<void> {
-        if (cancellable?.is_cancelled()) {
-            throw new Error('Operation cancelled');
-        }
-
-        this.app = await this._findJetBrainsAppByPattern(cancellable);
-
-        if (!this.app) {
-            const standardAppIds = [
-                this.jetbrainsApp.exec,
-                `jetbrains-${this.jetbrainsApp.exec}`,
-                `${this.jetbrainsApp.exec}-ultimate`,
-                `${this.jetbrainsApp.exec}-community`,
-                `${this.jetbrainsApp.exec}-ce`,
-                this.jetbrainsApp.name.toLowerCase().replace(/\s+/g, '-'),
-                `jetbrains-${this.jetbrainsApp.name.toLowerCase().replace(/\s+/g, '-')}`
-            ];
-
-            this.app = standardAppIds
-                .map((id) => Shell.AppSystem.get_default().lookup_app(id + ".desktop"))
-                .find((app) => Boolean(app));
-        }
-    }
-
-    private async _findJetBrainsAppByPattern(cancellable: Gio.Cancellable | null = null): Promise<Shell.App | undefined> {
-        const homeDir = GLib.get_home_dir();
-        const desktopDir = GLib.build_filenamev([homeDir, '.local', 'share', 'applications']);
-
-        try {
-            const dirFile = Gio.File.new_for_path(desktopDir);
-            if (!dirFile.query_exists(cancellable)) return undefined;
-
-            const enumerator = dirFile.enumerate_children(
-                'standard::name',
-                Gio.FileQueryInfoFlags.NONE,
-                cancellable
-            );
-
-            try {
-                let info;
-                while ((info = enumerator.next_file(cancellable))) {
-                    const filename = info.get_name();
-                    if (!filename.endsWith('.desktop')) continue;
-
-                    const lowerFilename = filename.toLowerCase();
-                    if (lowerFilename.startsWith('jetbrains-')) {
-                        const filenameMatch = this._matchesFilenamePattern(lowerFilename);
-
-                        if (filenameMatch) {
-                            const app = Shell.AppSystem.get_default().lookup_app(filename);
-                            if (app) {
-                                return app;
-                            }
-                        } else {
-                            const contentMatch = this._matchesDesktopFileContent(desktopDir, filename, cancellable);
-                            if (contentMatch) {
-                                const app = Shell.AppSystem.get_default().lookup_app(filename);
-                                if (app) {
-                                    return app;
-                                }
-                            }
-                        }
-                    }
-                }
-            } finally {
-                try {
-                    enumerator.close(cancellable);
-                } catch (e) {
-                    console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
-                }
-            }
-        } catch (e) {
-            console.warn(`JetBrains Search Provider: Error searching for ${this.jetbrainsApp.name} desktop files: ${e}`);
-        }
-
-        return undefined;
-    }
-
-    private _matchesFilenamePattern(lowerFilename: string): boolean {
-        // Check filename patterns for each IDE
-        switch (this.jetbrainsApp.exec) {
-            case 'idea':
-                return lowerFilename.includes('-idea-') || lowerFilename === 'jetbrains-idea.desktop';
-            case 'pycharm':
-                return lowerFilename.includes('-pycharm-') || lowerFilename === 'jetbrains-pycharm-ce.desktop';
-            case 'rustrover':
-                return lowerFilename.includes('-rustrover-') || lowerFilename === 'jetbrains-rustrover.desktop';
-            case 'android-studio':
-                return lowerFilename.includes('-studio') || lowerFilename === 'jetbrains-studio.desktop';
-            case 'webstorm':
-                return lowerFilename.includes('-webstorm-') || lowerFilename === 'jetbrains-webstorm.desktop';
-            case 'phpstorm':
-                return lowerFilename.includes('-phpstorm-') || lowerFilename === 'jetbrains-phpstorm.desktop';
-            case 'goland':
-                return lowerFilename.includes('-goland-') || lowerFilename === 'jetbrains-goland.desktop';
-            case 'clion':
-                return lowerFilename.includes('-clion-') || lowerFilename === 'jetbrains-clion.desktop';
-            case 'rider':
-                return lowerFilename.includes('-rider-') || lowerFilename === 'jetbrains-rider.desktop';
-            case 'rubymine':
-                return lowerFilename.includes('-rubymine-') || lowerFilename === 'jetbrains-rubymine.desktop';
-            case 'datagrip':
-                return lowerFilename.includes('-datagrip-') || lowerFilename === 'jetbrains-datagrip.desktop';
-            default:
-                return false;
-        }
-    }
-
-    private _matchesDesktopFileContent(desktopDir: string, filename: string, cancellable: Gio.Cancellable | null = null): boolean {
-        try {
-            const desktopFilePath = GLib.build_filenamev([desktopDir, filename]);
-            const desktopFile = Gio.File.new_for_path(desktopFilePath);
-
-            const [success, contents] = desktopFile.load_contents(cancellable);
-            if (!success) return false;
-
-            const text = new TextDecoder().decode(contents).toLowerCase();
-
-            const searchPatterns = [
-                this.jetbrainsApp.exec.toLowerCase(),
-                this.jetbrainsApp.name.toLowerCase(),
-                this.jetbrainsApp.name.toLowerCase().replace(/\s+/g, ''),
-                this.jetbrainsApp.name.toLowerCase().replace(/\s+/g, '-')
-            ];
-
-            if (this.jetbrainsApp.exec === 'idea') {
-                searchPatterns.push('intellij', 'intellij idea', 'intellij-idea');
-            } else if (this.jetbrainsApp.exec === 'android-studio') {
-                searchPatterns.push('android studio', 'studio');
-            }
-
-            return searchPatterns.some(pattern => {
-                const regex = new RegExp(`\\b${this._escapeRegex(pattern)}\\b`, 'i');
-                return regex.test(text);
-            });
-        } catch {
-            return false;
-        }
-    }
-
     protected getAdditionalConfigPatterns(): RegExp[] {
         return [];
     }
 
     protected shouldIncludeProject(_projectPath: string): boolean {
         return true;
-    }
-
-    private _escapeRegex(str: string): string {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     private async _loadProjects(cancellable: Gio.Cancellable | null = null): Promise<void> {
@@ -235,9 +92,9 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                     const fileType = info.get_file_type();
                     if (fileType !== Gio.FileType.DIRECTORY) continue;
 
-                    const escapedConfigDir = this._escapeRegex(this.jetbrainsApp.configDir.substring(1));
-                    const escapedName = this._escapeRegex(this.jetbrainsApp.name.replace(/\s+/g, ''));
-                    const escapedExec = this._escapeRegex(this.jetbrainsApp.exec);
+                    const escapedConfigDir = escapeRegex(this.jetbrainsApp.configDir.substring(1));
+                    const escapedName = escapeRegex(this.jetbrainsApp.name.replace(/\s+/g, ''));
+                    const escapedExec = escapeRegex(this.jetbrainsApp.exec);
 
                     const patterns = [
                         new RegExp(`^${escapedConfigDir}\\d{4}\\.\\d+`, 'i'),
