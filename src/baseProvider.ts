@@ -8,7 +8,8 @@ import {AppSearchProvider, ResultMeta} from "resource:///org/gnome/shell/ui/appD
 import {JetBrainsProject} from "./project.js";
 import {JetBrainsApp} from "./jetBrainsApp.js";
 import {calculateSearchScore, normalizeForSearch, normalizePathForSearch} from "./searchScoring.js";
-import {escapeRegex, findJetBrainsApp} from "./appDiscovery.js";
+import {findJetBrainsApp} from "./appDiscovery.js";
+import {loadProjects} from "./projectLoader.js";
 
 /**
  * Base JetBrains Search Provider for GNOME Shell
@@ -18,10 +19,12 @@ import {escapeRegex, findJetBrainsApp} from "./appDiscovery.js";
  * for any JetBrains IDE.
  */
 export default class BaseJetBrainsProvider implements AppSearchProvider {
-    public projects: JetBrainsProject[] = [];
     protected extension: Extension;
     protected app: Shell.App | undefined;
     protected jetbrainsApp: JetBrainsApp;
+
+    private _projects: JetBrainsProject[] = [];
+    private _projectsById = new Map<string, JetBrainsProject>();
 
     // Set by GNOME Shell's search framework when the provider is registered
     display!: Clutter.Actor;
@@ -29,6 +32,15 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     constructor(extension: Extension, jetbrainsApp: JetBrainsApp) {
         this.extension = extension;
         this.jetbrainsApp = jetbrainsApp;
+    }
+
+    get projects(): JetBrainsProject[] {
+        return this._projects;
+    }
+
+    set projects(projects: JetBrainsProject[]) {
+        this._projects = projects;
+        this._projectsById = new Map(projects.map(p => [this._getProjectId(p), p]));
     }
 
     /**
@@ -52,7 +64,10 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Initialization cancelled');
         }
 
-        await this._loadProjects(cancellable);
+        this.projects = loadProjects(this.jetbrainsApp, {
+            additionalPatterns: this.getAdditionalConfigPatterns(),
+            shouldInclude: (projectPath) => this.shouldIncludeProject(projectPath),
+        }, cancellable);
     }
 
     protected getAdditionalConfigPatterns(): RegExp[] {
@@ -61,128 +76,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
     protected shouldIncludeProject(_projectPath: string): boolean {
         return true;
-    }
-
-    private async _loadProjects(cancellable: Gio.Cancellable | null = null): Promise<void> {
-        const homeDir = GLib.get_home_dir();
-        const jetbrainsConfigDir = GLib.build_filenamev([homeDir, '.config', 'JetBrains']);
-
-        this.projects = [];
-
-        const jetbrainsDir = Gio.File.new_for_path(jetbrainsConfigDir);
-        if (!jetbrainsDir.query_exists(cancellable)) {
-            return;
-        }
-
-        try {
-            const enumerator = jetbrainsDir.enumerate_children(
-                'standard::name,standard::type',
-                Gio.FileQueryInfoFlags.NONE,
-                cancellable
-            );
-
-            try {
-                let info;
-                while ((info = enumerator.next_file(cancellable))) {
-                    if (cancellable?.is_cancelled()) {
-                        throw new Error('Operation cancelled');
-                    }
-
-                    const name = info.get_name();
-                    const fileType = info.get_file_type();
-                    if (fileType !== Gio.FileType.DIRECTORY) continue;
-
-                    const escapedConfigDir = escapeRegex(this.jetbrainsApp.configDir.substring(1));
-                    const escapedName = escapeRegex(this.jetbrainsApp.name.replace(/\s+/g, ''));
-                    const escapedExec = escapeRegex(this.jetbrainsApp.exec);
-
-                    const patterns = [
-                        new RegExp(`^${escapedConfigDir}\\d{4}\\.\\d+`, 'i'),
-                        new RegExp(`^${escapedName}\\d{4}\\.\\d+`, 'i'),
-                        new RegExp(`^${escapedName}CE\\d{4}\\.\\d+`, 'i'),
-                        new RegExp(`^${escapedExec}IC\\d{4}\\.\\d+`, 'i'),
-                        new RegExp(`^_${escapedConfigDir}\\d{4}\\.\\d+`, 'i')
-                    ];
-
-                    patterns.push(...this.getAdditionalConfigPatterns());
-
-                    if (patterns.some(pattern => pattern.test(name))) {
-                        const recentProjectsPath = GLib.build_filenamev([
-                            jetbrainsConfigDir, name, 'options', 'recentProjects.xml'
-                        ]);
-
-                        await this._parseRecentProjects(recentProjectsPath, cancellable);
-                    }
-                }
-            } finally {
-                try {
-                    enumerator.close(cancellable);
-                } catch (e) {
-                    console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
-                }
-            }
-        } catch (e) {
-            if (cancellable?.is_cancelled()) {
-                throw e;
-            }
-            console.warn(`JetBrains Search Provider: Error reading ${jetbrainsConfigDir} for ${this.jetbrainsApp.name}: ${e}`);
-        }
-    }
-
-    private async _parseRecentProjects(xmlPath: string, cancellable: Gio.Cancellable | null = null): Promise<void> {
-        const file = Gio.File.new_for_path(xmlPath);
-        if (!file.query_exists(cancellable)) {
-            return;
-        }
-
-        try {
-            const [success, contents] = file.load_contents(cancellable);
-            if (!success) {
-                return;
-            }
-
-            const text = new TextDecoder().decode(contents);
-            const entryRegex = /<entry\s+key="([^"]+)"/g;
-            let match;
-
-            while ((match = entryRegex.exec(text)) !== null) {
-                if (cancellable?.is_cancelled()) {
-                    throw new Error('Operation cancelled');
-                }
-
-                let projectPath = match[1];
-
-                if (!projectPath.startsWith('$USER_HOME$/')) continue;
-
-                projectPath = projectPath.replace('$USER_HOME$', GLib.get_home_dir());
-
-                const projectFile = Gio.File.new_for_path(projectPath);
-                if (projectFile.query_exists(cancellable)) {
-                    if (!this.shouldIncludeProject(projectPath)) {
-                        continue;
-                    }
-
-                    const projectName = GLib.path_get_basename(projectPath);
-
-                    if (!this.projects.some(p => p.path === projectPath)) {
-                        this.projects.push(new JetBrainsProject(
-                            projectName,
-                            projectPath,
-                            this.jetbrainsApp.name,
-                            this.jetbrainsApp.exec,
-                            this.jetbrainsApp.toolboxDir,
-                            this.jetbrainsApp.iconFile
-                        ));
-                    }
-                }
-            }
-
-        } catch (e) {
-            if (cancellable?.is_cancelled()) {
-                throw e;
-            }
-            console.warn(`JetBrains Search Provider: Error parsing ${xmlPath}: ${e}`);
-        }
     }
 
     private _getProjectId(project: JetBrainsProject): string {
@@ -325,7 +218,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
         const scoredResults = previousResults
             .map(id => {
-                const project = this.projects.find(p => this._getProjectId(p) === id);
+                const project = this._projectsById.get(id);
                 if (!project) return null;
 
                 const score = this._calculateSearchScore(project.name, project.path, terms);
@@ -362,7 +255,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         const {scaleFactor} = St.ThemeContext.get_for_stage(Shell.Global.get().stage);
 
         return results.map(id => {
-            const project = this.projects.find(p => this._getProjectId(p) === id);
+            const project = this._projectsById.get(id);
             if (!project) {
                 return {
                     id: id,
@@ -439,10 +332,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * @param {string[]} _terms - The search terms (unused)
      */
     activateResult(id: string, _terms: string[]): void {
-        const project = this.projects.find(p => this._getProjectId(p) === id);
-        if (project) {
-            project.launch();
-        }
+        this._projectsById.get(id)?.launch();
     }
 
     // noinspection JSUnusedGlobalSymbols
