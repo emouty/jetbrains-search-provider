@@ -7,6 +7,7 @@ import {Extension} from "resource:///org/gnome/shell/extensions/extension.js";
 import {AppSearchProvider, ResultMeta} from "resource:///org/gnome/shell/ui/appDisplay.js";
 import {JetBrainsProject} from "./project.js";
 import {JetBrainsApp} from "./jetBrainsApp.js";
+import {calculateSearchScore, normalizeForSearch, normalizePathForSearch} from "./searchScoring.js";
 
 /**
  * Base JetBrains Search Provider for GNOME Shell
@@ -388,46 +389,13 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         return null;
     }
 
-    /**
-     * Calculate a search score for a project name.
-     *
-     * Scores are calculated based on match quality:
-     * - 1000: Exact match (project name equals search term)
-     * - 900: Search term is a complete word in the project name
-     * - 800: Search term starts a word in the project name
-     * - 500: Search term appears at the start of the project name
-     * - 100: Search term appears anywhere in the project name
-     * - 0: No match
-     *
-     * Higher scores indicate better matches.
-     *
-     * @param {string} projectName - The project name to score
-     * @param {string} searchTerm - The search term to match
-     * @returns {number} The match score
-     */
+    /** Score a project against the joined search terms — see searchScoring.ts. */
     private _calculateSearchScore(projectName: string, projectPath: string, terms: string[]): number {
-        // Normalize: collapse any separator (-, _, space, .) into a space.
-        // This lets "server archiver" (two GNOME terms) match "server-archiver".
-        const normalize = (s: string) => s.toLowerCase().replace(/[-_\s.]+/g, ' ').trim();
-
-        const normalizedName = normalize(projectName);
-        const searchTerm = normalize(terms.join(' '));
-
-        if (normalizedName.includes(searchTerm)) {
-            if (normalizedName === searchTerm) return 1000;
-            const nameParts = normalizedName.split(' ');
-            if (nameParts.includes(searchTerm)) return 900;
-            if (nameParts.some(p => p.startsWith(searchTerm))) return 800;
-            if (normalizedName.startsWith(searchTerm)) return 500;
-            return 100;
-        }
-
-        // Path match: lower score so name matches always rank higher.
-        // Normalize path separators too so "work/backend" → "work backend".
-        const normalizedPath = projectPath.toLowerCase().replace(/[-_\s./]+/g, ' ').trim();
-        if (normalizedPath.includes(searchTerm)) return 50;
-
-        return 0;
+        return calculateSearchScore(
+            normalizeForSearch(projectName),
+            normalizePathForSearch(projectPath),
+            normalizeForSearch(terms.join(' '))
+        );
     }
 
     /**
