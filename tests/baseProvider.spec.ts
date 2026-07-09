@@ -288,3 +288,29 @@ describe('getResultMetas', () => {
         await expect(p.getResultMetas([], cancelled)).rejects.toThrow();
     });
 });
+
+// ── projects setter / id map ─────────────────────────────────────────────────
+
+describe('projects assignment', () => {
+    it('reassigning projects updates id lookups', async () => {
+        const p = makeProvider([proj('backend', '/home/test/backend')]);
+        p.projects = [proj('frontend', '/home/test/frontend')];
+
+        const [meta] = await p.getResultMetas([id('/home/test/frontend')], neverCancelled);
+        expect(meta.name).toBe('frontend');
+
+        const [stale] = await p.getResultMetas([id('/home/test/backend')], neverCancelled);
+        expect(stale.name).toBe('Unknown Project');
+    });
+
+    it('activateResult launches the project resolved by id', () => {
+        const project = proj('backend', '/home/test/backend');
+        let launched = 0;
+        project.launch = () => { launched++; };
+        const p = makeProvider([project]);
+
+        p.activateResult(id('/home/test/backend'), []);
+        p.activateResult('idea-_nonexistent', []);
+        expect(launched).toBe(1);
+    });
+});
