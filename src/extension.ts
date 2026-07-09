@@ -6,6 +6,7 @@ import BaseJetBrainsProvider from "./baseProvider.js";
 import IntelliJProvider from "./intellijProvider.js";
 import AndroidStudioProvider from "./androidStudioProvider.js";
 import {JETBRAINS_APPS} from "./jetBrainsApp.js";
+import {ScanCache} from "./scanCache.js";
 
 // noinspection JSUnusedGlobalSymbols
 export default class JetBrainsSearchProviderExtension extends Extension {
@@ -17,12 +18,12 @@ export default class JetBrainsSearchProviderExtension extends Extension {
         this.settings = this.getSettings('org.gnome.shell.extensions.jetbrains-search');
         this._initCancellable = new Gio.Cancellable();
 
-        this._initializeProvidersAsync(this._initCancellable).catch(e => {
+        this._initializeProvidersAsync(this._initCancellable, new ScanCache()).catch(e => {
             console.error(`JetBrains Search Provider: Failed to initialize: ${e}`);
         });
     }
 
-    private async _initializeProvidersAsync(cancellable: Gio.Cancellable) {
+    private async _initializeProvidersAsync(cancellable: Gio.Cancellable, scanCache: ScanCache) {
 
         for (const jetbrainsApp of JETBRAINS_APPS) {
             if (cancellable.is_cancelled()) {
@@ -32,13 +33,13 @@ export default class JetBrainsSearchProviderExtension extends Extension {
             let provider: BaseJetBrainsProvider;
             switch (jetbrainsApp.exec) {
                 case 'idea':
-                    provider = new IntelliJProvider(this, jetbrainsApp);
+                    provider = new IntelliJProvider(this, jetbrainsApp, scanCache);
                     break;
                 case 'android-studio':
-                    provider = new AndroidStudioProvider(this, jetbrainsApp);
+                    provider = new AndroidStudioProvider(this, jetbrainsApp, scanCache);
                     break;
                 default:
-                    provider = new BaseJetBrainsProvider(this, jetbrainsApp);
+                    provider = new BaseJetBrainsProvider(this, jetbrainsApp, scanCache);
                     break;
             }
 

@@ -2,11 +2,13 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import {JetBrainsApp} from "./jetBrainsApp.js";
 import {JetBrainsProject} from "./project.js";
+import {ScanCache} from "./scanCache.js";
 import {escapeRegex} from "./appDiscovery.js";
 
 /**
  * Loads recent projects for one IDE from its ~/.config/JetBrains/<IDE><year>.<n>
- * directories by parsing options/recentProjects.xml.
+ * directories, using the shared ScanCache so the JetBrains config directory is
+ * enumerated once for all providers.
  */
 
 export interface ProjectLoaderOptions {
@@ -63,82 +65,31 @@ function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp, opts: Proj
     }
 }
 
-function loadRecentProjectsXml(configDirName: string, cancellable: Gio.Cancellable | null): string | null {
-    const path = GLib.build_filenamev([
-        GLib.get_home_dir(), '.config', 'JetBrains', configDirName, 'options', 'recentProjects.xml'
-    ]);
-    const file = Gio.File.new_for_path(path);
-    if (!file.query_exists(cancellable)) {
-        return null;
-    }
-
-    try {
-        const [success, contents] = file.load_contents(cancellable);
-        if (!success) return null;
-        return new TextDecoder().decode(contents);
-    } catch (e) {
-        if (cancellable?.is_cancelled()) {
-            throw e;
-        }
-        console.warn(`JetBrains Search Provider: Error reading ${path}: ${e}`);
-        return null;
-    }
-}
-
-export function loadProjects(jetbrainsApp: JetBrainsApp, opts: ProjectLoaderOptions,
-                             cancellable: Gio.Cancellable | null = null): JetBrainsProject[] {
-    const jetbrainsConfigDir = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'JetBrains']);
+export async function loadProjects(jetbrainsApp: JetBrainsApp, scanCache: ScanCache,
+                                   opts: ProjectLoaderOptions,
+                                   cancellable: Gio.Cancellable | null = null): Promise<JetBrainsProject[]> {
     const patterns = [...buildConfigDirPatterns(jetbrainsApp), ...opts.additionalPatterns];
     const projectsByPath = new Map<string, JetBrainsProject>();
 
-    const jetbrainsDir = Gio.File.new_for_path(jetbrainsConfigDir);
-    if (!jetbrainsDir.query_exists(cancellable)) {
-        return [];
-    }
+    const configDirNames = await scanCache.getConfigDirNames(cancellable);
+    for (const name of configDirNames) {
+        if (cancellable?.is_cancelled()) {
+            throw new Error('Operation cancelled');
+        }
 
-    try {
-        const enumerator = jetbrainsDir.enumerate_children(
-            'standard::name,standard::type',
-            Gio.FileQueryInfoFlags.NONE,
-            cancellable
-        );
+        if (!patterns.some(pattern => pattern.test(name))) continue;
+
+        const xml = await scanCache.getRecentProjectsXml(name, cancellable);
+        if (!xml) continue;
 
         try {
-            let info;
-            while ((info = enumerator.next_file(cancellable))) {
-                if (cancellable?.is_cancelled()) {
-                    throw new Error('Operation cancelled');
-                }
-
-                if (info.get_file_type() !== Gio.FileType.DIRECTORY) continue;
-
-                const name = info.get_name();
-                if (!patterns.some(pattern => pattern.test(name))) continue;
-
-                const xml = loadRecentProjectsXml(name, cancellable);
-                if (!xml) continue;
-
-                try {
-                    parseRecentProjects(xml, jetbrainsApp, opts, projectsByPath, cancellable);
-                } catch (e) {
-                    if (cancellable?.is_cancelled()) {
-                        throw e;
-                    }
-                    console.warn(`JetBrains Search Provider: Error parsing recentProjects.xml in ${name}: ${e}`);
-                }
+            parseRecentProjects(xml, jetbrainsApp, opts, projectsByPath, cancellable);
+        } catch (e) {
+            if (cancellable?.is_cancelled()) {
+                throw e;
             }
-        } finally {
-            try {
-                enumerator.close(cancellable);
-            } catch (e) {
-                console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
-            }
+            console.warn(`JetBrains Search Provider: Error parsing recentProjects.xml in ${name}: ${e}`);
         }
-    } catch (e) {
-        if (cancellable?.is_cancelled()) {
-            throw e;
-        }
-        console.warn(`JetBrains Search Provider: Error reading ${jetbrainsConfigDir} for ${jetbrainsApp.name}: ${e}`);
     }
 
     return [...projectsByPath.values()];

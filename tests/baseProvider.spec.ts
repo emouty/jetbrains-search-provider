@@ -4,6 +4,7 @@ import type { Extension } from 'resource:///org/gnome/shell/extensions/extension
 import BaseJetBrainsProvider from '../src/baseProvider.js';
 import { JetBrainsProject } from '../src/project.js';
 import type { JetBrainsApp } from '../src/jetBrainsApp.js';
+import type { ScanCache } from '../src/scanCache.js';
 
 const ideaApp: JetBrainsApp = {
     name: 'IntelliJ IDEA',
@@ -17,8 +18,11 @@ const fakeExtension = { uuid: 'jetbrains-search@test' } as unknown as Extension;
 const neverCancelled = { is_cancelled: () => false } as unknown as Gio.Cancellable;
 const cancelled = { is_cancelled: () => true } as unknown as Gio.Cancellable;
 
+// Search-path tests never call initialize(), so a stub ScanCache suffices
+const stubScanCache = {} as ScanCache;
+
 function makeProvider(projects: JetBrainsProject[]): BaseJetBrainsProvider {
-    const p = new BaseJetBrainsProvider(fakeExtension, ideaApp);
+    const p = new BaseJetBrainsProvider(fakeExtension, ideaApp, stubScanCache);
     p.projects = projects;
     return p;
 }

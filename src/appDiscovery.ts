@@ -1,7 +1,7 @@
 import Shell from "gi://Shell";
 import Gio from "gi://Gio";
-import GLib from "gi://GLib";
 import {JetBrainsApp} from "./jetBrainsApp.js";
+import {ScanCache} from "./scanCache.js";
 
 /**
  * Desktop-file based discovery of an installed JetBrains IDE.
@@ -59,62 +59,28 @@ function buildContentPatterns(jetbrainsApp: JetBrainsApp): RegExp[] {
     return searchPatterns.map(pattern => new RegExp(`\\b${escapeRegex(pattern)}\\b`, 'i'));
 }
 
-function matchesDesktopFileContent(desktopDir: string, filename: string, patterns: RegExp[],
-                                   cancellable: Gio.Cancellable | null): boolean {
-    try {
-        const desktopFile = Gio.File.new_for_path(GLib.build_filenamev([desktopDir, filename]));
-        const [success, contents] = desktopFile.load_contents(cancellable);
-        if (!success) return false;
-
-        const text = new TextDecoder().decode(contents).toLowerCase();
-        return patterns.some(pattern => pattern.test(text));
-    } catch {
-        return false;
-    }
-}
-
-function findByDesktopFiles(jetbrainsApp: JetBrainsApp,
-                            cancellable: Gio.Cancellable | null): Shell.App | undefined {
-    const desktopDir = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'share', 'applications']);
+async function findByDesktopFiles(jetbrainsApp: JetBrainsApp, scanCache: ScanCache,
+                                  cancellable: Gio.Cancellable | null): Promise<Shell.App | undefined> {
     let contentPatterns: RegExp[] | null = null;
 
     try {
-        const dirFile = Gio.File.new_for_path(desktopDir);
-        if (!dirFile.query_exists(cancellable)) return undefined;
+        for (const {filename, lowerFilename} of await scanCache.getDesktopEntries(cancellable)) {
+            if (!lowerFilename.startsWith('jetbrains-')) continue;
 
-        const enumerator = dirFile.enumerate_children(
-            'standard::name',
-            Gio.FileQueryInfoFlags.NONE,
-            cancellable
-        );
-
-        try {
-            let info;
-            while ((info = enumerator.next_file(cancellable))) {
-                const filename = info.get_name();
-                if (!filename.endsWith('.desktop')) continue;
-
-                const lowerFilename = filename.toLowerCase();
-                if (!lowerFilename.startsWith('jetbrains-')) continue;
-
-                let matches = matchesFilenamePattern(jetbrainsApp, lowerFilename);
-                if (!matches) {
+            let matches = matchesFilenamePattern(jetbrainsApp, lowerFilename);
+            if (!matches) {
+                const contents = await scanCache.getDesktopFileContents(filename, cancellable);
+                if (contents) {
                     contentPatterns ??= buildContentPatterns(jetbrainsApp);
-                    matches = matchesDesktopFileContent(desktopDir, filename, contentPatterns, cancellable);
-                }
-
-                if (matches) {
-                    const app = Shell.AppSystem.get_default().lookup_app(filename);
-                    if (app) {
-                        return app;
-                    }
+                    matches = contentPatterns.some(pattern => pattern.test(contents));
                 }
             }
-        } finally {
-            try {
-                enumerator.close(cancellable);
-            } catch (e) {
-                console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
+
+            if (matches) {
+                const app = Shell.AppSystem.get_default().lookup_app(filename);
+                if (app) {
+                    return app;
+                }
             }
         }
     } catch (e) {
@@ -144,7 +110,8 @@ function findByStandardAppIds(jetbrainsApp: JetBrainsApp): Shell.App | undefined
         .find((app) => Boolean(app));
 }
 
-export function findJetBrainsApp(jetbrainsApp: JetBrainsApp,
-                                 cancellable: Gio.Cancellable | null = null): Shell.App | undefined {
-    return findByDesktopFiles(jetbrainsApp, cancellable) ?? findByStandardAppIds(jetbrainsApp);
+export async function findJetBrainsApp(jetbrainsApp: JetBrainsApp, scanCache: ScanCache,
+                                       cancellable: Gio.Cancellable | null = null): Promise<Shell.App | undefined> {
+    return await findByDesktopFiles(jetbrainsApp, scanCache, cancellable)
+        ?? findByStandardAppIds(jetbrainsApp);
 }

@@ -10,6 +10,7 @@ import {JetBrainsApp} from "./jetBrainsApp.js";
 import {calculateSearchScore, normalizeForSearch} from "./searchScoring.js";
 import {findJetBrainsApp} from "./appDiscovery.js";
 import {loadProjects} from "./projectLoader.js";
+import {ScanCache} from "./scanCache.js";
 
 /**
  * Base JetBrains Search Provider for GNOME Shell
@@ -22,6 +23,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     protected extension: Extension;
     protected app: Shell.App | undefined;
     protected jetbrainsApp: JetBrainsApp;
+    protected scanCache: ScanCache;
 
     private _projects: JetBrainsProject[] = [];
     private _projectsById = new Map<string, JetBrainsProject>();
@@ -29,9 +31,10 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     // Set by GNOME Shell's search framework when the provider is registered
     display!: Clutter.Actor;
 
-    constructor(extension: Extension, jetbrainsApp: JetBrainsApp) {
+    constructor(extension: Extension, jetbrainsApp: JetBrainsApp, scanCache: ScanCache) {
         this.extension = extension;
         this.jetbrainsApp = jetbrainsApp;
+        this.scanCache = scanCache;
     }
 
     get projects(): JetBrainsProject[] {
@@ -58,13 +61,13 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Initialization cancelled');
         }
 
-        this.app = findJetBrainsApp(this.jetbrainsApp, cancellable);
+        this.app = await findJetBrainsApp(this.jetbrainsApp, this.scanCache, cancellable);
 
         if (cancellable?.is_cancelled()) {
             throw new Error('Initialization cancelled');
         }
 
-        this.projects = loadProjects(this.jetbrainsApp, {
+        this.projects = await loadProjects(this.jetbrainsApp, this.scanCache, {
             additionalPatterns: this.getAdditionalConfigPatterns(),
             shouldInclude: (projectPath) => this.shouldIncludeProject(projectPath),
         }, cancellable);

@@ -11,17 +11,14 @@ let status = 0;
 (async () => {
     try {
         const {JETBRAINS_APPS} = await import('./jetBrainsApp.js');
-        const discovery = await import('./appDiscovery.js').catch(() => null);
-        const loader = await import('./projectLoader.js').catch(() => null);
+        const {findJetBrainsApp} = await import('./appDiscovery.js');
+        const {loadProjects} = await import('./projectLoader.js');
+        const {ScanCache} = await import('./scanCache.js');
 
-        if (!discovery || !loader) {
-            print('SKIP: appDiscovery/projectLoader not extracted yet, nothing to smoke-test');
-            return;
-        }
-
+        const scanCache = new ScanCache();
         for (const app of JETBRAINS_APPS) {
-            const found = await discovery.findJetBrainsApp(app, null);
-            const projects = await loader.loadProjects(app, {
+            const found = await findJetBrainsApp(app, scanCache, null);
+            const projects = await loadProjects(app, scanCache, {
                 additionalPatterns: [],
                 shouldInclude: () => true,
             }, null);

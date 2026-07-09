@@ -1,9 +1,6 @@
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
-import {Extension} from "resource:///org/gnome/shell/extensions/extension.js";
 import BaseJetBrainsProvider from "./baseProvider.js";
-
-import {JetBrainsApp} from "./jetBrainsApp.js";
 
 /**
  * IntelliJ IDEA Search Provider
@@ -13,10 +10,6 @@ import {JetBrainsApp} from "./jetBrainsApp.js";
  * in the .idea directory.
  */
 export default class IntelliJProvider extends BaseJetBrainsProvider {
-    constructor(extension: Extension, jetbrainsApp: JetBrainsApp) {
-        super(extension, jetbrainsApp);
-    }
-
     protected shouldIncludeProject(projectPath: string): boolean {
         const androidSystemFile = GLib.build_filenamev([
             projectPath, '.idea', 'AndroidProjectSystem.xml'
