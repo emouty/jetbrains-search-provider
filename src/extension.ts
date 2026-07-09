@@ -24,42 +24,49 @@ export default class JetBrainsSearchProviderExtension extends Extension {
     }
 
     private async _initializeProvidersAsync(cancellable: Gio.Cancellable, scanCache: ScanCache) {
-
-        for (const jetbrainsApp of JETBRAINS_APPS) {
-            if (cancellable.is_cancelled()) {
-                break;
-            }
-
-            let provider: BaseJetBrainsProvider;
+        // Initialize all providers concurrently; the ScanCache deduplicates the
+        // underlying directory scans.
+        const providers = JETBRAINS_APPS.map(jetbrainsApp => {
             switch (jetbrainsApp.exec) {
                 case 'idea':
-                    provider = new IntelliJProvider(this, jetbrainsApp, scanCache);
-                    break;
+                    return new IntelliJProvider(this, jetbrainsApp, scanCache);
                 case 'android-studio':
-                    provider = new AndroidStudioProvider(this, jetbrainsApp, scanCache);
-                    break;
+                    return new AndroidStudioProvider(this, jetbrainsApp, scanCache);
                 default:
-                    provider = new BaseJetBrainsProvider(this, jetbrainsApp, scanCache);
-                    break;
+                    return new BaseJetBrainsProvider(this, jetbrainsApp, scanCache);
             }
+        });
 
-            try {
-                await provider.initialize(cancellable);
+        const results = await Promise.allSettled(
+            providers.map(provider => provider.initialize(cancellable))
+        );
 
-                if (provider.projects.length > 0) {
-                    this.providers.push(provider);
-                    Main.overview.searchController.addProvider(provider);
-
-                    if (this.settings?.get_boolean("override-results-order")) {
-                        const searchResults = Main.overview.searchController._searchResults;
-                        searchResults._content.remove_child(provider.display);
-                        searchResults._content.insert_child_at_index(provider.display, this.providers.length);
-                    }
-                }
-            } catch (e) {
-                console.error(`JetBrains Search Provider: Failed to initialize ${jetbrainsApp.name} provider: ${e}`);
-            }
+        // Nothing may register after disable(); the registration loop below is
+        // fully synchronous, so this single check is sufficient.
+        if (cancellable.is_cancelled()) {
+            return;
         }
+
+        providers.forEach((provider, i) => {
+            const result = results[i];
+            if (result.status === 'rejected') {
+                console.error(`JetBrains Search Provider: Failed to initialize ${JETBRAINS_APPS[i].name} provider: ${result.reason}`);
+                return;
+            }
+
+            if (provider.projects.length === 0) {
+                return;
+            }
+
+            this.providers.push(provider);
+            Main.overview.searchController.addProvider(provider);
+
+            if (this.settings?.get_boolean("override-results-order")) {
+                const searchResults = Main.overview.searchController._searchResults;
+                searchResults._content.remove_child(provider.display);
+                searchResults._content.insert_child_at_index(provider.display, this.providers.length);
+            }
+        });
     }
 
     disable() {
