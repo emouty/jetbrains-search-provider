@@ -7,7 +7,7 @@ import {Extension} from "resource:///org/gnome/shell/extensions/extension.js";
 import {AppSearchProvider, ResultMeta} from "resource:///org/gnome/shell/ui/appDisplay.js";
 import {JetBrainsProject} from "./project.js";
 import {JetBrainsApp} from "./jetBrainsApp.js";
-import {calculateSearchScore, normalizeForSearch, normalizePathForSearch} from "./searchScoring.js";
+import {calculateSearchScore, normalizeForSearch} from "./searchScoring.js";
 import {findJetBrainsApp} from "./appDiscovery.js";
 import {loadProjects} from "./projectLoader.js";
 
@@ -139,15 +139,6 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         return null;
     }
 
-    /** Score a project against the joined search terms — see searchScoring.ts. */
-    private _calculateSearchScore(projectName: string, projectPath: string, terms: string[]): number {
-        return calculateSearchScore(
-            normalizeForSearch(projectName),
-            normalizePathForSearch(projectPath),
-            normalizeForSearch(terms.join(' '))
-        );
-    }
-
     /**
      * Initiate a new search.
      *
@@ -175,11 +166,13 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Search cancelled');
         }
 
+        const searchTerm = normalizeForSearch(terms.join(' '));
+
         // Score and filter projects
-        const scoredProjects = this.projects
+        const scoredProjects = this._projects
             .map(project => ({
                 project,
-                score: this._calculateSearchScore(project.name, project.path, terms)
+                score: calculateSearchScore(project.normalizedName, project.normalizedPath, searchTerm)
             }))
             .filter(item => item.score > 0)
             .sort((a, b) => {
@@ -216,12 +209,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Search cancelled');
         }
 
+        const searchTerm = normalizeForSearch(terms.join(' '));
+
         const scoredResults = previousResults
             .map(id => {
                 const project = this._projectsById.get(id);
                 if (!project) return null;
 
-                const score = this._calculateSearchScore(project.name, project.path, terms);
+                const score = calculateSearchScore(project.normalizedName, project.normalizedPath, searchTerm);
                 return score > 0 ? {id, project, score} : null;
             })
             .filter((item): item is NonNullable<typeof item> => item !== null)
