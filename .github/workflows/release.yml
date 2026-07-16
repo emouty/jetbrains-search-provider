@@ -46,6 +46,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # drop rolling draft (see draft-release.yml); its notes are superseded by this release
+          gh release list --json tagName,isDraft \
+            -q '.[] | select(.isDraft) | .tagName' |
+            xargs -r -n1 gh release delete --yes
           gh release create "${{ github.event.inputs.version }}" \
             jetbrains-search-provider.zip \
             --title "${{ github.event.inputs.version }}" \
