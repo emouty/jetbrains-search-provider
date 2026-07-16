@@ -34,7 +34,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@girs/gjs": "4.1.0",
-    "@girs/gnome-shell": "50.0.0",
+    "@girs/gnome-shell": "50.0.4",
     "@types/node": "24.13.3",
     "bumpp": "11.1.0",
     "esbuild": "0.28.1",
