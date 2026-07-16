@@ -1,6 +1,6 @@
 {
   "name": "jetbrains-search-provider",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Provide search results from JetBrains IDEs recent projects to GNOME Shell search",
   "type": "module",
   "private": true,
