@@ -1,0 +1,36 @@
+name: Draft Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    if: >-
+      github.event.pull_request.merged == true &&
+      (startsWith(github.event.pull_request.head.ref, 'feat/') ||
+       startsWith(github.event.pull_request.head.ref, 'feature/'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Create or refresh draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(git tag --sort=-v:refname | head -1)
+          latest=${latest:-0.0.0}
+          IFS=. read -r major minor _ <<< "$latest"
+          next="$major.$((minor + 1)).0"
+          # single rolling draft: drop the old one so notes regenerate
+          gh release list --json tagName,isDraft \
+            -q '.[] | select(.isDraft) | .tagName' |
+            xargs -r -n1 gh release delete --yes
+          gh release create "$next" --draft --generate-notes \
+            --target master --title "$next"
