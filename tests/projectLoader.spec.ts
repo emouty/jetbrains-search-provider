@@ -29,8 +29,6 @@ const studioApp: JetBrainsApp = {
 const neverCancelled = { is_cancelled: () => false } as unknown as Gio.Cancellable;
 
 const defaultOpts: ProjectLoaderOptions = {
-    additionalPatterns: [],
-    shouldInclude: () => true,
     includeGoogleConfigDir: false,
 };
 
@@ -97,29 +95,6 @@ describe('XML entity decoding', () => {
             '/home/test/work/x<y': null,
         });
         expect((await load()).map(p => p.path)).toEqual(['/home/test/work/x&lt;y']);
-    });
-});
-
-describe('shouldInclude hook', () => {
-    it('receives the project path and the cancellable', async () => {
-        stage(['$USER_HOME$/work/app'], { '/home/test/work/app': null });
-        const calls: [string, Gio.Cancellable | null][] = [];
-        await load({
-            shouldInclude: (path, cancellable) => {
-                calls.push([path, cancellable]);
-                return true;
-            },
-        });
-        expect(calls).toEqual([['/home/test/work/app', neverCancelled]]);
-    });
-
-    it('filters out rejected projects', async () => {
-        stage(['$USER_HOME$/work/app', '$USER_HOME$/work/other'], {
-            '/home/test/work/app': null,
-            '/home/test/work/other': null,
-        });
-        const projects = await load({ shouldInclude: path => path.endsWith('/other') });
-        expect(projects.map(p => p.path)).toEqual(['/home/test/work/other']);
     });
 });
 
