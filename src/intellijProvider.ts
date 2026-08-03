@@ -10,13 +10,13 @@ import BaseJetBrainsProvider from "./baseProvider.js";
  * in the .idea directory.
  */
 export default class IntelliJProvider extends BaseJetBrainsProvider {
-    protected shouldIncludeProject(projectPath: string): boolean {
+    protected shouldIncludeProject(projectPath: string, cancellable: Gio.Cancellable | null): boolean {
         const androidSystemFile = GLib.build_filenamev([
             projectPath, '.idea', 'AndroidProjectSystem.xml'
         ]);
         const file = Gio.File.new_for_path(androidSystemFile);
         // Exclude Android Studio projects (return false if it's an Android project)
-        return !file.query_exists(null);
+        return !file.query_exists(cancellable);
     }
 }
 

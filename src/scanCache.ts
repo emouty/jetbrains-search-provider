@@ -70,7 +70,7 @@ function enumerateChildrenAsync(file: Gio.File, attributes: string, cancellable:
 export class ScanCache {
     private _desktopEntries: Promise<DesktopEntry[]> | null = null;
     private _desktopFileContents = new Map<string, Promise<string | null>>();
-    private _configDirNames: Promise<string[]> | null = null;
+    private _configDirNames = new Map<string, Promise<string[]>>();
     private _recentProjectsXml = new Map<string, Promise<string | null>>();
 
     private get _desktopDir(): string {
@@ -79,6 +79,11 @@ export class ScanCache {
 
     private get _jetbrainsConfigDir(): string {
         return GLib.build_filenamev([GLib.get_home_dir(), '.config', 'JetBrains']);
+    }
+
+    /** Android Studio 4.1+ writes its config here instead of ~/.config/JetBrains. */
+    private get _googleConfigDir(): string {
+        return GLib.build_filenamev([GLib.get_home_dir(), '.config', 'Google']);
     }
 
     /** One enumeration of ~/.local/share/applications, filtered to *.desktop files. */
@@ -130,18 +135,29 @@ export class ScanCache {
 
     /** One enumeration of ~/.config/JetBrains, directory names only. */
     getConfigDirNames(cancellable: Gio.Cancellable | null = null): Promise<string[]> {
-        if (!this._configDirNames) {
-            const promise = this._scanConfigDirNames(cancellable);
-            promise.catch(() => {
-                if (this._configDirNames === promise) this._configDirNames = null;
-            });
-            this._configDirNames = promise;
-        }
-        return this._configDirNames;
+        return this._getConfigDirNames(this._jetbrainsConfigDir, cancellable);
     }
 
-    private async _scanConfigDirNames(cancellable: Gio.Cancellable | null): Promise<string[]> {
-        const dir = Gio.File.new_for_path(this._jetbrainsConfigDir);
+    /** Same, for ~/.config/Google (Android Studio only). */
+    getGoogleConfigDirNames(cancellable: Gio.Cancellable | null = null): Promise<string[]> {
+        return this._getConfigDirNames(this._googleConfigDir, cancellable);
+    }
+
+    private _getConfigDirNames(root: string, cancellable: Gio.Cancellable | null): Promise<string[]> {
+        let promise = this._configDirNames.get(root);
+        if (!promise) {
+            const created = this._scanConfigDirNames(root, cancellable);
+            created.catch(() => {
+                if (this._configDirNames.get(root) === created) this._configDirNames.delete(root);
+            });
+            this._configDirNames.set(root, created);
+            promise = created;
+        }
+        return promise;
+    }
+
+    private async _scanConfigDirNames(root: string, cancellable: Gio.Cancellable | null): Promise<string[]> {
+        const dir = Gio.File.new_for_path(root);
         if (!dir.query_exists(cancellable)) {
             return [];
         }
@@ -155,7 +171,7 @@ export class ScanCache {
             if (cancellable?.is_cancelled()) {
                 throw e;
             }
-            console.warn(`JetBrains Search Provider: Error scanning ${this._jetbrainsConfigDir}: ${e}`);
+            console.warn(`JetBrains Search Provider: Error scanning ${root}: ${e}`);
             return [];
         }
     }
@@ -166,12 +182,22 @@ export class ScanCache {
      * the IntelliJ provider already read.
      */
     getRecentProjectsXml(configDirName: string, cancellable: Gio.Cancellable | null = null): Promise<string | null> {
-        let promise = this._recentProjectsXml.get(configDirName);
+        return this._getRecentProjectsXml(this._jetbrainsConfigDir, configDirName, cancellable);
+    }
+
+    /** Same, for config dirs under ~/.config/Google (Android Studio only). */
+    getGoogleRecentProjectsXml(configDirName: string, cancellable: Gio.Cancellable | null = null): Promise<string | null> {
+        return this._getRecentProjectsXml(this._googleConfigDir, configDirName, cancellable);
+    }
+
+    private _getRecentProjectsXml(root: string, configDirName: string,
+                                  cancellable: Gio.Cancellable | null): Promise<string | null> {
+        const path = GLib.build_filenamev([root, configDirName, 'options', 'recentProjects.xml']);
+        let promise = this._recentProjectsXml.get(path);
         if (!promise) {
-            const path = GLib.build_filenamev([this._jetbrainsConfigDir, configDirName, 'options', 'recentProjects.xml']);
             const created = this._loadTextFile(path, cancellable);
-            created.catch(() => this._recentProjectsXml.delete(configDirName));
-            this._recentProjectsXml.set(configDirName, created);
+            created.catch(() => this._recentProjectsXml.delete(path));
+            this._recentProjectsXml.set(path, created);
             promise = created;
         }
         return promise;

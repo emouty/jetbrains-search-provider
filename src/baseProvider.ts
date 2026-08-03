@@ -69,7 +69,8 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
         this.projects = await loadProjects(this.jetbrainsApp, this.scanCache, {
             additionalPatterns: this.getAdditionalConfigPatterns(),
-            shouldInclude: (projectPath) => this.shouldIncludeProject(projectPath),
+            shouldInclude: (projectPath, c) => this.shouldIncludeProject(projectPath, c),
+            includeGoogleConfigDir: this.usesGoogleConfigDir(),
         }, cancellable);
     }
 
@@ -77,8 +78,13 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         return [];
     }
 
-    protected shouldIncludeProject(_projectPath: string): boolean {
+    protected shouldIncludeProject(_projectPath: string, _cancellable: Gio.Cancellable | null): boolean {
         return true;
+    }
+
+    /** Only Android Studio keeps config outside ~/.config/JetBrains. */
+    protected usesGoogleConfigDir(): boolean {
+        return false;
     }
 
     private _getProjectId(project: JetBrainsProject): string {

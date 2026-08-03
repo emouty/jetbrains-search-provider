@@ -15,7 +15,19 @@ export interface ProjectLoaderOptions {
     /** Extra config-dir patterns from provider subclasses. */
     additionalPatterns: RegExp[];
     /** Per-project filter hook from provider subclasses. */
-    shouldInclude: (projectPath: string) => boolean;
+    shouldInclude: (projectPath: string, cancellable: Gio.Cancellable | null) => boolean;
+    /** Also scan ~/.config/Google, where Android Studio 4.1+ keeps its config. */
+    includeGoogleConfigDir: boolean;
+}
+
+/** Decode the five predefined XML entities. `&amp;` last, so `&amp;lt;` stays the literal `&lt;`. */
+function decodeXmlEntities(value: string): string {
+    return value
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&');
 }
 
 function buildConfigDirPatterns(jetbrainsApp: JetBrainsApp): RegExp[] {
@@ -43,16 +55,18 @@ function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp, opts: Proj
             throw new Error('Operation cancelled');
         }
 
-        let projectPath = match[1];
+        // The capture is raw XML attribute text; entities must be decoded before use.
+        let projectPath = decodeXmlEntities(match[1]);
 
-        if (!projectPath.startsWith('$USER_HOME$/')) continue;
+        // Home-relative or absolute only; relative entries like ../../foo are noise.
+        if (!projectPath.startsWith('$USER_HOME$/') && !projectPath.startsWith('/')) continue;
 
         projectPath = projectPath.replace('$USER_HOME$', GLib.get_home_dir());
         if (projectsByPath.has(projectPath)) continue;
 
         const projectFile = Gio.File.new_for_path(projectPath);
         if (!projectFile.query_exists(cancellable)) continue;
-        if (!opts.shouldInclude(projectPath)) continue;
+        if (!opts.shouldInclude(projectPath, cancellable)) continue;
 
         projectsByPath.set(projectPath, new JetBrainsProject(
             GLib.path_get_basename(projectPath),
@@ -60,7 +74,8 @@ function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp, opts: Proj
             jetbrainsApp.name,
             jetbrainsApp.exec,
             jetbrainsApp.toolboxDir,
-            jetbrainsApp.iconFile
+            jetbrainsApp.iconFile,
+            jetbrainsApp.launcher
         ));
     }
 }
@@ -71,24 +86,36 @@ export async function loadProjects(jetbrainsApp: JetBrainsApp, scanCache: ScanCa
     const patterns = [...buildConfigDirPatterns(jetbrainsApp), ...opts.additionalPatterns];
     const projectsByPath = new Map<string, JetBrainsProject>();
 
-    const configDirNames = await scanCache.getConfigDirNames(cancellable);
-    for (const name of configDirNames) {
-        if (cancellable?.is_cancelled()) {
-            throw new Error('Operation cancelled');
-        }
+    const roots = [{
+        names: () => scanCache.getConfigDirNames(cancellable),
+        xml: (name: string) => scanCache.getRecentProjectsXml(name, cancellable)
+    }];
+    if (opts.includeGoogleConfigDir) {
+        roots.push({
+            names: () => scanCache.getGoogleConfigDirNames(cancellable),
+            xml: (name: string) => scanCache.getGoogleRecentProjectsXml(name, cancellable)
+        });
+    }
 
-        if (!patterns.some(pattern => pattern.test(name))) continue;
-
-        const xml = await scanCache.getRecentProjectsXml(name, cancellable);
-        if (!xml) continue;
-
-        try {
-            parseRecentProjects(xml, jetbrainsApp, opts, projectsByPath, cancellable);
-        } catch (e) {
+    for (const root of roots) {
+        for (const name of await root.names()) {
             if (cancellable?.is_cancelled()) {
-                throw e;
+                throw new Error('Operation cancelled');
             }
-            console.warn(`JetBrains Search Provider: Error parsing recentProjects.xml in ${name}: ${e}`);
+
+            if (!patterns.some(pattern => pattern.test(name))) continue;
+
+            const xml = await root.xml(name);
+            if (!xml) continue;
+
+            try {
+                parseRecentProjects(xml, jetbrainsApp, opts, projectsByPath, cancellable);
+            } catch (e) {
+                if (cancellable?.is_cancelled()) {
+                    throw e;
+                }
+                console.warn(`JetBrains Search Provider: Error parsing recentProjects.xml in ${name}: ${e}`);
+            }
         }
     }
 
