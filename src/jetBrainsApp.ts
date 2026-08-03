@@ -4,6 +4,8 @@ export interface JetBrainsApp {
     configDir: string;
     toolboxDir: string;
     iconFile: string;
+    /** Launcher binary/desktop-file name when it differs from `exec`. */
+    launcher?: string;
 }
 
 export const JETBRAINS_APPS: JetBrainsApp[] = [
@@ -75,7 +77,9 @@ export const JETBRAINS_APPS: JetBrainsApp[] = [
         exec: 'android-studio',
         configDir: '.AndroidStudio',
         toolboxDir: 'android-studio',
-        iconFile: 'studio.svg'
+        iconFile: 'studio.svg',
+        // Toolbox ships bin/studio and jetbrains-studio.desktop, not android-studio.
+        launcher: 'studio'
     },
     {
         name: 'RustRover',

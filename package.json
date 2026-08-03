@@ -26,7 +26,8 @@
     "install-extension": "gnome-extensions install ${npm_package_name}.zip --force",
     "setup": "npm run pack && npm run install-extension",
     "debug": "dbus-run-session -- gnome-shell --devkit --wayland",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck:test": "tsc -p tsconfig.spec.json"
   },
   "lint-staged": {
     "*": "eslint --fix"

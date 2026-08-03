@@ -10,6 +10,8 @@ export class JetBrainsProject {
     appExec: string;
     toolboxDir: string;
     iconFile: string;
+    /** Launcher binary/desktop-file name; falls back to appExec when the IDE has none. */
+    readonly launcher: string;
     readonly normalizedName: string;
     readonly normalizedPath: string;
 
@@ -18,13 +20,15 @@ export class JetBrainsProject {
     private _projectIconPath: string | null | undefined;
     private _toolboxIcon: Gio.Icon | null | undefined;
 
-    constructor(name: string, path: string, appName: string, appExec: string, toolboxDir: string, iconFile: string) {
+    constructor(name: string, path: string, appName: string, appExec: string, toolboxDir: string, iconFile: string,
+                launcher?: string) {
         this.name = name;
         this.path = path;
         this.appName = appName;
         this.appExec = appExec;
         this.toolboxDir = toolboxDir;
         this.iconFile = iconFile;
+        this.launcher = launcher ?? appExec;
         this.normalizedName = normalizeForSearch(name);
         this.normalizedPath = normalizePathForSearch(path);
     }
@@ -68,7 +72,7 @@ export class JetBrainsProject {
         const homeDir = GLib.get_home_dir();
         const executablePath = GLib.build_filenamev([
             homeDir, '.local', 'share', 'JetBrains', 'Toolbox', 'apps',
-            this.toolboxDir, 'bin', this.appExec
+            this.toolboxDir, 'bin', this.launcher
         ]);
 
         const executableFile = Gio.File.new_for_path(executablePath);
@@ -99,7 +103,7 @@ export class JetBrainsProject {
                     if (!filename.endsWith('.desktop')) continue;
 
                     if (filename.includes('jetbrains') &&
-                        (filename.toLowerCase().includes(this.appExec.toLowerCase()) ||
+                        (filename.toLowerCase().includes(this.launcher.toLowerCase()) ||
                             filename.toLowerCase().includes(this.appName.toLowerCase().replace(/\s+/g, '-')))) {
 
                         if (this._launchViaDesktopFileExec(desktopDir, filename, cancellable)) {
@@ -147,7 +151,7 @@ export class JetBrainsProject {
     }
 
     private _launchViaSystemCommand(): boolean {
-        return this._spawnDetached([this.appExec, this.path], 'system command');
+        return this._spawnDetached([this.launcher, this.path], 'system command');
     }
 
     getProjectIconPath(cancellable: Gio.Cancellable | null = null): string | null {

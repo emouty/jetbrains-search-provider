@@ -30,6 +30,8 @@ jobs:
 
       - run: npm run build
 
+      - run: npm run typecheck:test
+
       - run: npm test
 
       - name: Ensure packaging tools
