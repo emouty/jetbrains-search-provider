@@ -68,18 +68,8 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         }
 
         this.projects = await loadProjects(this.jetbrainsApp, this.scanCache, {
-            additionalPatterns: this.getAdditionalConfigPatterns(),
-            shouldInclude: (projectPath, c) => this.shouldIncludeProject(projectPath, c),
             includeGoogleConfigDir: this.usesGoogleConfigDir(),
         }, cancellable);
-    }
-
-    protected getAdditionalConfigPatterns(): RegExp[] {
-        return [];
-    }
-
-    protected shouldIncludeProject(_projectPath: string, _cancellable: Gio.Cancellable | null): boolean {
-        return true;
     }
 
     /** Only Android Studio keeps config outside ~/.config/JetBrains. */

@@ -3,7 +3,6 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import {Extension} from "resource:///org/gnome/shell/extensions/extension.js";
 import {AppSearchProvider} from "resource:///org/gnome/shell/ui/appDisplay.js";
 import BaseJetBrainsProvider from "./baseProvider.js";
-import IntelliJProvider from "./intellijProvider.js";
 import AndroidStudioProvider from "./androidStudioProvider.js";
 import {JETBRAINS_APPS} from "./jetBrainsApp.js";
 import {ScanCache} from "./scanCache.js";
@@ -28,8 +27,6 @@ export default class JetBrainsSearchProviderExtension extends Extension {
         // underlying directory scans.
         const providers = JETBRAINS_APPS.map(jetbrainsApp => {
             switch (jetbrainsApp.exec) {
-                case 'idea':
-                    return new IntelliJProvider(this, jetbrainsApp, scanCache);
                 case 'android-studio':
                     return new AndroidStudioProvider(this, jetbrainsApp, scanCache);
                 default:

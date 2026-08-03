@@ -12,10 +12,6 @@ import {escapeRegex} from "./appDiscovery.js";
  */
 
 export interface ProjectLoaderOptions {
-    /** Extra config-dir patterns from provider subclasses. */
-    additionalPatterns: RegExp[];
-    /** Per-project filter hook from provider subclasses. */
-    shouldInclude: (projectPath: string, cancellable: Gio.Cancellable | null) => boolean;
     /** Also scan ~/.config/Google, where Android Studio 4.1+ keeps its config. */
     includeGoogleConfigDir: boolean;
 }
@@ -44,7 +40,7 @@ function buildConfigDirPatterns(jetbrainsApp: JetBrainsApp): RegExp[] {
     ];
 }
 
-function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp, opts: ProjectLoaderOptions,
+function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp,
                              projectsByPath: Map<string, JetBrainsProject>,
                              cancellable: Gio.Cancellable | null): void {
     const entryRegex = /<entry\s+key="([^"]+)"/g;
@@ -66,7 +62,6 @@ function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp, opts: Proj
 
         const projectFile = Gio.File.new_for_path(projectPath);
         if (!projectFile.query_exists(cancellable)) continue;
-        if (!opts.shouldInclude(projectPath, cancellable)) continue;
 
         projectsByPath.set(projectPath, new JetBrainsProject(
             GLib.path_get_basename(projectPath),
@@ -83,7 +78,7 @@ function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp, opts: Proj
 export async function loadProjects(jetbrainsApp: JetBrainsApp, scanCache: ScanCache,
                                    opts: ProjectLoaderOptions,
                                    cancellable: Gio.Cancellable | null = null): Promise<JetBrainsProject[]> {
-    const patterns = [...buildConfigDirPatterns(jetbrainsApp), ...opts.additionalPatterns];
+    const patterns = buildConfigDirPatterns(jetbrainsApp);
     const projectsByPath = new Map<string, JetBrainsProject>();
 
     const roots = [{
@@ -109,7 +104,7 @@ export async function loadProjects(jetbrainsApp: JetBrainsApp, scanCache: ScanCa
             if (!xml) continue;
 
             try {
-                parseRecentProjects(xml, jetbrainsApp, opts, projectsByPath, cancellable);
+                parseRecentProjects(xml, jetbrainsApp, projectsByPath, cancellable);
             } catch (e) {
                 if (cancellable?.is_cancelled()) {
                     throw e;
