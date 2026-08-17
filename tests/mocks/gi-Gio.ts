@@ -6,6 +6,7 @@ type FakeNode = { type: 'file'; contents: string } | { type: 'dir' };
 
 const nodes = new Map<string, FakeNode>();
 const enumerateCounts = new Map<string, number>();
+const spawnedArgv: string[][] = [];
 
 /** Stage fake filesystem entries: string value = file contents, null = directory. */
 export function __setFiles(map: Record<string, string | null>): void {
@@ -17,6 +18,12 @@ export function __setFiles(map: Record<string, string | null>): void {
 export function __reset(): void {
     nodes.clear();
     enumerateCounts.clear();
+    spawnedArgv.length = 0;
+}
+
+/** Argv of every Gio.Subprocess.new() call since the last __reset(). */
+export function __getSpawnedArgv(): string[][] {
+    return spawnedArgv;
 }
 
 /** Number of times a directory was enumerated (sync + async combined). */
@@ -74,11 +81,23 @@ class FakeEnumerator {
     close_finish(_res: AsyncResult<null>): boolean { return true; }
 }
 
+class FakeSubprocess {
+    wait_async(cancellable: unknown, callback: (source: FakeSubprocess, res: AsyncResult<null>) => void): void {
+        queueMicrotask(() => callback(this, { data: null, cancellable }));
+    }
+
+    wait_finish(_res: AsyncResult<null>): boolean { return true; }
+}
+
 class FakeFile {
     constructor(private readonly path: string) {}
 
     query_exists(_cancellable?: unknown): boolean {
         return nodes.has(this.path);
+    }
+
+    get_uri(): string {
+        return `file://${this.path}`;
     }
 
     load_contents(cancellable?: unknown): [boolean, Uint8Array | null] {
@@ -142,5 +161,11 @@ export default {
     FileQueryInfoFlags: { NONE: 0 },
     FileType,
     SubprocessFlags: { NONE: 0 },
+    Subprocess: {
+        new: (argv: string[], _flags: number) => {
+            spawnedArgv.push(argv);
+            return new FakeSubprocess();
+        },
+    },
     FileIcon: class FileIcon { constructor(p: unknown) { Object.assign(this as object, p ?? {}); } },
 };

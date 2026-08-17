@@ -13,7 +13,7 @@ const ideaApp: JetBrainsApp = {
     name: 'IntelliJ IDEA',
     exec: 'idea',
     configDir: '.IntelliJIdea',
-    toolboxDir: '',
+    toolboxDirs: ['intellij-idea-ultimate'],
     iconFile: 'idea.svg',
 };
 
@@ -21,7 +21,7 @@ const studioApp: JetBrainsApp = {
     name: 'Android Studio',
     exec: 'android-studio',
     configDir: '.AndroidStudio',
-    toolboxDir: 'android-studio',
+    toolboxDirs: ['android-studio'],
     iconFile: 'studio.svg',
     launcher: 'studio',
 };
@@ -30,6 +30,7 @@ const neverCancelled = { is_cancelled: () => false } as unknown as Gio.Cancellab
 
 const defaultOpts: ProjectLoaderOptions = {
     includeGoogleConfigDir: false,
+    resolvedToolboxDir: null,
 };
 
 function recentProjectsXml(keys: string[]): string {
@@ -80,6 +81,14 @@ describe('project path handling', () => {
     it('deduplicates repeated paths', async () => {
         stage(['$USER_HOME$/work/app', '$USER_HOME$/work/app'], { '/home/test/work/app': null });
         expect(await load()).toHaveLength(1);
+    });
+});
+
+describe('Toolbox edition', () => {
+    it('passes the resolved Toolbox directory to constructed projects', async () => {
+        stage(['$USER_HOME$/work/app'], { '/home/test/work/app': null });
+        const projects = await load({ resolvedToolboxDir: 'intellij-idea-community' });
+        expect(projects[0].toolboxDir).toBe('intellij-idea-community');
     });
 });
 

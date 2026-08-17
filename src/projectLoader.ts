@@ -14,6 +14,8 @@ import {escapeRegex} from "./appDiscovery.js";
 export interface ProjectLoaderOptions {
     /** Also scan ~/.config/Google, where Android Studio 4.1+ keeps its config. */
     includeGoogleConfigDir: boolean;
+    /** Installed Toolbox edition directory, or null when the IDE is not installed via Toolbox. */
+    resolvedToolboxDir: string | null;
 }
 
 /** Decode the five predefined XML entities. `&amp;` last, so `&amp;lt;` stays the literal `&lt;`. */
@@ -40,7 +42,7 @@ function buildConfigDirPatterns(jetbrainsApp: JetBrainsApp): RegExp[] {
     ];
 }
 
-function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp,
+function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp, resolvedToolboxDir: string | null,
                              projectsByPath: Map<string, JetBrainsProject>,
                              cancellable: Gio.Cancellable | null): void {
     const entryRegex = /<entry\s+key="([^"]+)"/g;
@@ -68,7 +70,7 @@ function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp,
             projectPath,
             jetbrainsApp.name,
             jetbrainsApp.exec,
-            jetbrainsApp.toolboxDir,
+            resolvedToolboxDir,
             jetbrainsApp.iconFile,
             jetbrainsApp.launcher
         ));
@@ -104,7 +106,7 @@ export async function loadProjects(jetbrainsApp: JetBrainsApp, scanCache: ScanCa
             if (!xml) continue;
 
             try {
-                parseRecentProjects(xml, jetbrainsApp, projectsByPath, cancellable);
+                parseRecentProjects(xml, jetbrainsApp, opts.resolvedToolboxDir, projectsByPath, cancellable);
             } catch (e) {
                 if (cancellable?.is_cancelled()) {
                     throw e;
