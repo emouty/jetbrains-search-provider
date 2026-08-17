@@ -10,7 +10,7 @@ const ideaApp: JetBrainsApp = {
     name: 'IntelliJ IDEA',
     exec: 'idea',
     configDir: '.IntelliJIdea',
-    toolboxDir: '',
+    toolboxDirs: [],
     iconFile: 'idea.svg',
 };
 
@@ -28,7 +28,7 @@ function makeProvider(projects: JetBrainsProject[]): BaseJetBrainsProvider {
 }
 
 function proj(name: string, path: string): JetBrainsProject {
-    return new JetBrainsProject(name, path, 'IntelliJ IDEA', 'idea', '', '');
+    return new JetBrainsProject(name, path, 'IntelliJ IDEA', 'idea', null, '');
 }
 
 // Replicates BaseJetBrainsProvider._getProjectId

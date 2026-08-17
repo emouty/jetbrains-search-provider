@@ -24,6 +24,8 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     protected app: Shell.App | undefined;
     protected jetbrainsApp: JetBrainsApp;
     protected scanCache: ScanCache;
+    /** Installed Toolbox edition directory, or null when the IDE is not installed via Toolbox. */
+    protected resolvedToolboxDir: string | null = null;
 
     private _projects: JetBrainsProject[] = [];
     private _projectsById = new Map<string, JetBrainsProject>();
@@ -67,9 +69,23 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
             throw new Error('Initialization cancelled');
         }
 
+        this.resolvedToolboxDir = this._resolveToolboxDir(cancellable);
+
         this.projects = await loadProjects(this.jetbrainsApp, this.scanCache, {
             includeGoogleConfigDir: this.usesGoogleConfigDir(),
+            resolvedToolboxDir: this.resolvedToolboxDir,
         }, cancellable);
+    }
+
+    /** First Toolbox edition directory that exists, or null when none is installed. */
+    private _resolveToolboxDir(cancellable: Gio.Cancellable | null): string | null {
+        const appsDir = GLib.build_filenamev([
+            GLib.get_home_dir(), '.local', 'share', 'JetBrains', 'Toolbox', 'apps'
+        ]);
+
+        return this.jetbrainsApp.toolboxDirs.find(dir =>
+            Gio.File.new_for_path(GLib.build_filenamev([appsDir, dir])).query_exists(cancellable)
+        ) ?? null;
     }
 
     /** Only Android Studio keeps config outside ~/.config/JetBrains. */
@@ -120,15 +136,17 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
         } as unknown as Gio.AppInfo;
     }
 
-    private _createFallbackIcon(cancellable: Gio.Cancellable | null = null): Gio.Icon | null {
+    private _createFallbackIcon(): Gio.Icon | null {
+        if (!this.resolvedToolboxDir) return null;
+
         const homeDir = GLib.get_home_dir();
         const iconPath = GLib.build_filenamev([
             homeDir, '.local', 'share', 'JetBrains', 'Toolbox', 'apps',
-            this.jetbrainsApp.toolboxDir, 'bin', this.jetbrainsApp.iconFile
+            this.resolvedToolboxDir, 'bin', this.jetbrainsApp.iconFile
         ]);
 
         const iconFile = Gio.File.new_for_path(iconPath);
-        if (iconFile.query_exists(cancellable)) {
+        if (iconFile.query_exists(null)) {
             try {
                 return new Gio.FileIcon({file: iconFile});
             } catch (e) {
@@ -265,7 +283,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
             const createIcon = (size: number) => {
                 try {
-                    const projectIcon = project.createIcon(size, scaleFactor, cancellable);
+                    const projectIcon = project.createIcon(size, scaleFactor);
                     if (projectIcon) {
                         return projectIcon;
                     }
@@ -326,7 +344,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * @param {string[]} _terms - The search terms (unused)
      */
     activateResult(id: string, _terms: string[]): void {
-        this._projectsById.get(id)?.launch();
+        this._projectsById.get(id)?.launch(this.app?.get_app_info() ?? null);
     }
 
     // noinspection JSUnusedGlobalSymbols

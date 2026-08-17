@@ -8,7 +8,7 @@ export class JetBrainsProject {
     path: string;
     appName: string;
     appExec: string;
-    toolboxDir: string;
+    toolboxDir: string | null;
     iconFile: string;
     /** Launcher binary/desktop-file name; falls back to appExec when the IDE has none. */
     readonly launcher: string;
@@ -20,7 +20,7 @@ export class JetBrainsProject {
     private _projectIconPath: string | null | undefined;
     private _toolboxIcon: Gio.Icon | null | undefined;
 
-    constructor(name: string, path: string, appName: string, appExec: string, toolboxDir: string, iconFile: string,
+    constructor(name: string, path: string, appName: string, appExec: string, toolboxDir: string | null, iconFile: string,
                 launcher?: string) {
         this.name = name;
         this.path = path;
@@ -33,17 +33,10 @@ export class JetBrainsProject {
         this.normalizedPath = normalizePathForSearch(path);
     }
 
-    launch(): void {
-        const launchMethods = [
-            this._launchViaToolbox.bind(this),
-            this._launchViaDesktopFile.bind(this),
-            this._launchViaSystemCommand.bind(this)
-        ];
-
-        for (const method of launchMethods) {
-            if (method()) {
-                return;
-            }
+    /** @param appInfo the IDE's desktop app as resolved by the provider, when it found one. */
+    launch(appInfo: Gio.AppInfo | null = null): void {
+        if (this._launchViaToolbox() || this._launchViaAppInfo(appInfo) || this._launchViaSystemCommand()) {
+            return;
         }
 
         console.warn(`JetBrains Search Provider: Failed to launch ${this.appName} project ${this.name}`);
@@ -82,88 +75,33 @@ export class JetBrainsProject {
         return this._spawnDetached([executablePath, this.path], 'Toolbox');
     }
 
-    private _launchViaDesktopFile(cancellable: Gio.Cancellable | null = null): boolean {
-        const homeDir = GLib.get_home_dir();
-        const desktopDir = GLib.build_filenamev([homeDir, '.local', 'share', 'applications']);
+    private _launchViaAppInfo(appInfo: Gio.AppInfo | null): boolean {
+        if (!appInfo) return false;
 
         try {
-            const dirFile = Gio.File.new_for_path(desktopDir);
-            if (!dirFile.query_exists(cancellable)) return false;
-
-            const enumerator = dirFile.enumerate_children(
-                'standard::name',
-                Gio.FileQueryInfoFlags.NONE,
-                cancellable
-            );
-
-            try {
-                let info;
-                while ((info = enumerator.next_file(cancellable))) {
-                    const filename = info.get_name();
-                    if (!filename.endsWith('.desktop')) continue;
-
-                    if (filename.includes('jetbrains') &&
-                        (filename.toLowerCase().includes(this.launcher.toLowerCase()) ||
-                            filename.toLowerCase().includes(this.appName.toLowerCase().replace(/\s+/g, '-')))) {
-
-                        if (this._launchViaDesktopFileExec(desktopDir, filename, cancellable)) {
-                            return true;
-                        }
-                    }
-                }
-            } finally {
-                try {
-                    enumerator.close(cancellable);
-                } catch (e) {
-                    console.warn(`JetBrains Search Provider: Error closing enumerator: ${e}`);
-                }
-            }
+            return appInfo.launch_uris([Gio.File.new_for_path(this.path).get_uri()], null);
         } catch (e) {
-            console.warn(`JetBrains Search Provider: Error searching desktop files: ${e}`);
+            console.warn(`JetBrains Search Provider: Failed to launch via app info for ${this.name}: ${e}`);
+            return false;
         }
-
-        return false;
-    }
-
-    private _launchViaDesktopFileExec(desktopDir: string, filename: string,
-                                      cancellable: Gio.Cancellable | null): boolean {
-        try {
-            const desktopFile = Gio.File.new_for_path(GLib.build_filenamev([desktopDir, filename]));
-            const [success, contents] = desktopFile.load_contents(cancellable);
-            if (!success) return false;
-
-            const text = new TextDecoder().decode(contents);
-            const execMatch = text.match(/^Exec=(.+)$/m);
-            if (!execMatch) return false;
-
-            // Replace %f, %F, %u, %U with the project path, safely shell-quoted
-            const execCommand = execMatch[1].replace(/%[fFuU]/g, GLib.shell_quote(this.path));
-
-            // Parse the command into argv and launch without invoking a shell
-            const [parsed, argv] = GLib.shell_parse_argv(execCommand);
-            if (parsed && argv) {
-                return this._spawnDetached(argv, 'desktop file');
-            }
-        } catch (e) {
-            console.warn(`JetBrains Search Provider: Error processing desktop file ${filename}: ${e}`);
-        }
-        return false;
     }
 
     private _launchViaSystemCommand(): boolean {
         return this._spawnDetached([this.launcher, this.path], 'system command');
     }
 
-    getProjectIconPath(cancellable: Gio.Cancellable | null = null): string | null {
+    // Icon lookups run uncancelled: they are single stats, and a cancelled one
+    // would memoize a spurious "missing" for the rest of the provider's life.
+    getProjectIconPath(): string | null {
         if (this._projectIconPath === undefined) {
             const iconPath = GLib.build_filenamev([this.path, '.idea', 'icon.png']);
             const iconFile = Gio.File.new_for_path(iconPath);
-            this._projectIconPath = iconFile.query_exists(cancellable) ? iconPath : null;
+            this._projectIconPath = iconFile.query_exists(null) ? iconPath : null;
         }
         return this._projectIconPath;
     }
 
-    private _getIdeIconFromToolbox(cancellable: Gio.Cancellable | null = null): Gio.Icon | null {
+    private _getIdeIconFromToolbox(): Gio.Icon | null {
         if (this._toolboxIcon !== undefined) {
             return this._toolboxIcon;
         }
@@ -178,7 +116,7 @@ export class JetBrainsProject {
         ]);
 
         const iconFile = Gio.File.new_for_path(iconPath);
-        if (iconFile.query_exists(cancellable)) {
+        if (iconFile.query_exists(null)) {
             try {
                 this._toolboxIcon = new Gio.FileIcon({file: iconFile});
             } catch (e) {
@@ -189,8 +127,8 @@ export class JetBrainsProject {
         return this._toolboxIcon;
     }
 
-    createIcon(size: number, _scaleFactor: number, cancellable: Gio.Cancellable | null = null): St.Icon {
-        const projectIconPath = this.getProjectIconPath(cancellable);
+    createIcon(size: number, _scaleFactor: number): St.Icon {
+        const projectIconPath = this.getProjectIconPath();
         if (projectIconPath) {
             try {
                 const file = Gio.File.new_for_path(projectIconPath);
@@ -204,7 +142,7 @@ export class JetBrainsProject {
             }
         }
 
-        const ideIcon = this._getIdeIconFromToolbox(cancellable);
+        const ideIcon = this._getIdeIconFromToolbox();
         if (ideIcon) {
             return new St.Icon({
                 gicon: ideIcon,
