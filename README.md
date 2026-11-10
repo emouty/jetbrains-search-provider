@@ -8,7 +8,7 @@ open your projects directly from the Activities overview.
 
 ## Features
 
-- Supports GNOME Shell 45 → 49+
+- Supports GNOME Shell 45 and later (see `shell-version` in [metadata.json](metadata.json))
 - **Universal Search**: Find JetBrains projects from GNOME's search overlay
 - **Recent Projects Only**: Searches are limited to projects in each IDE's recent projects list
 - **IDE-Specific Icons**: Each project displays with its corresponding IDE icon (IntelliJ IDEA, PyCharm, RustRover,
