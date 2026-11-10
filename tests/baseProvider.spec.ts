@@ -114,12 +114,15 @@ describe('getInitialResultSet', () => {
             .toEqual([id('/home/test/server_api')]);
     });
 
-    it('limits results to 10', async () => {
+    it('returns every match so a subsearch can reach any of them', async () => {
         const projects = Array.from({ length: 15 }, (_, i) =>
             proj(`project-${i}`, `/home/test/project-${i}`),
         );
         const p = makeProvider(projects);
-        expect(await p.getInitialResultSet(['project'], neverCancelled)).toHaveLength(10);
+        const initial = await p.getInitialResultSet(['project'], neverCancelled);
+        expect(initial).toHaveLength(15);
+        expect(await p.getSubsearchResultSet(initial, ['project-14'], neverCancelled))
+            .toEqual([id('/home/test/project-14')]);
     });
 
     it('equal-score results sorted alphabetically by name', async () => {
@@ -285,6 +288,20 @@ describe('getResultMetas', () => {
         const p = makeProvider([proj('backend', '/home/test/backend')]);
         const [meta] = await p.getResultMetas([id('/home/test/backend')], neverCancelled);
         expect(meta.createIcon(32)).toBeTruthy();
+    });
+
+    it('falls back to the IDE app icon when the project has none', async () => {
+        const p = makeProvider([proj('backend', '/home/test/backend')]);
+        const appIcon = { name: 'idea-app-icon' };
+        (p as unknown as { app: unknown }).app = { get_app_info: () => ({ get_icon: () => appIcon }) };
+        const [meta] = await p.getResultMetas([id('/home/test/backend')], neverCancelled);
+        expect(meta.createIcon(32)).toMatchObject({ gicon: appIcon, icon_size: 32 });
+    });
+
+    it('falls back to a folder icon without project, Toolbox or app icon', async () => {
+        const p = makeProvider([proj('backend', '/home/test/backend')]);
+        const [meta] = await p.getResultMetas([id('/home/test/backend')], neverCancelled);
+        expect(meta.createIcon(32)).toMatchObject({ icon_name: 'folder-symbolic' });
     });
 
     it('throws when cancellable is cancelled', async () => {

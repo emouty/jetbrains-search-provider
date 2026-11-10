@@ -14,7 +14,7 @@ export const JETBRAINS_APPS: JetBrainsApp[] = [
         name: 'IntelliJ IDEA',
         exec: 'idea',
         configDir: '.IntelliJIdea',
-        toolboxDirs: ['intellij-idea-ultimate', 'intellij-idea-community'],
+        toolboxDirs: ['intellij-idea-ultimate', 'intellij-idea-community', 'intellij-idea'],
         iconFile: 'idea.svg'
     },
     {

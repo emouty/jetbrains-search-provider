@@ -160,16 +160,11 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * Initiate a new search.
      *
      * This method is called to start a new search and returns a list of
-     * unique identifiers for matching JetBrains projects. Results are filtered
-     * by project name containing the search terms and ordered by match quality.
-     * Results are limited to 10 projects.
-     *
-     * Search scoring prioritizes:
-     * 1. Exact matches
-     * 2. Complete word matches (e.g., "archive" matches "backend-archive")
-     * 3. Word-start matches (e.g., "arch" matches "backend-archiver")
-     * 4. Name-start matches
-     * 5. Substring matches anywhere in the name
+     * unique identifiers for matching JetBrains projects, scored by
+     * {@link calculateSearchScore} and ordered by match quality.
+     * The full list is returned: the shell feeds it back to
+     * {@link getSubsearchResultSet} as the candidate set, and caps the display
+     * through {@link filterResults}.
      *
      * If @cancellable is triggered, this method should throw an error.
      *
@@ -200,9 +195,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 return a.project.name.localeCompare(b.project.name);
             });
 
-        return scoredProjects
-            .map(item => this._getProjectId(item.project))
-            .slice(0, 10);
+        return scoredProjects.map(item => this._getProjectId(item.project));
     }
 
     /**
@@ -303,7 +296,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
                 }
 
                 return new St.Icon({
-                    icon_name: 'application-x-executable-symbolic',
+                    icon_name: 'folder-symbolic',
                     icon_size: size
                 });
             };
