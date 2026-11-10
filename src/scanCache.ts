@@ -176,11 +176,7 @@ export class ScanCache {
         }
     }
 
-    /**
-     * Memoized read of <configDir>/options/recentProjects.xml. Memoization matters
-     * because the Android Studio provider re-reads IntelliJ IDEA config dirs that
-     * the IntelliJ provider already read.
-     */
+    /** Memoized read of <configDir>/options/recentProjects.xml. */
     getRecentProjectsXml(configDirName: string, cancellable: Gio.Cancellable | null = null): Promise<string | null> {
         return this._getRecentProjectsXml(this._jetbrainsConfigDir, configDirName, cancellable);
     }

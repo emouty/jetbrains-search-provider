@@ -28,6 +28,10 @@ function score(name: string, path: string, term: string): number {
 }
 
 describe('calculateSearchScore', () => {
+    it('separator-only term matches nothing', () => {
+        expect(score('backend', '/home/test/backend', '-')).toBe(0);
+    });
+
     it('exact match → 1000', () => {
         expect(score('backend', '/home/test/backend', 'backend')).toBe(1000);
     });

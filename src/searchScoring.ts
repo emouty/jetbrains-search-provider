@@ -37,6 +37,9 @@ export function normalizePathForSearch(path: string): string {
  * - 0: No match
  */
 export function calculateSearchScore(normalizedName: string, normalizedPath: string, normalizedTerm: string): number {
+    // A separator-only query ("-", ".") normalizes to "", which every string contains.
+    if (!normalizedTerm) return 0;
+
     if (normalizedName.includes(normalizedTerm)) {
         if (normalizedName === normalizedTerm) return 1000;
         const nameParts = normalizedName.split(' ');
