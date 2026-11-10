@@ -13,6 +13,8 @@ permissions:
 
 jobs:
   release:
+    # the job pushes HEAD to master: a dispatch from another branch would bypass review
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     env:
       # never interpolate the raw input into a run: block
