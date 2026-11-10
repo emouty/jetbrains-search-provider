@@ -127,7 +127,7 @@ export class JetBrainsProject {
         return this._toolboxIcon;
     }
 
-    createIcon(size: number, _scaleFactor: number): St.Icon {
+    createIcon(size: number, _scaleFactor: number): St.Icon | null {
         const projectIconPath = this.getProjectIconPath();
         if (projectIconPath) {
             try {
@@ -150,9 +150,6 @@ export class JetBrainsProject {
             });
         }
 
-        return new St.Icon({
-            icon_name: 'folder-symbolic',
-            icon_size: size
-        });
+        return null;
     }
 }
