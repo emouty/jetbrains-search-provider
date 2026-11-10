@@ -59,7 +59,7 @@ export class JetBrainsProject {
         }
     }
 
-    private _launchViaToolbox(cancellable: Gio.Cancellable | null = null): boolean {
+    private _launchViaToolbox(): boolean {
         if (!this.toolboxDir) return false;
 
         const homeDir = GLib.get_home_dir();
@@ -69,7 +69,7 @@ export class JetBrainsProject {
         ]);
 
         const executableFile = Gio.File.new_for_path(executablePath);
-        if (!executableFile.query_exists(cancellable)) {
+        if (!executableFile.query_exists(null)) {
             return false;
         }
         return this._spawnDetached([executablePath, this.path], 'Toolbox');
