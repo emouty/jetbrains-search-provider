@@ -27,7 +27,7 @@ export default defineConfig({
     },
     test: {
         include: ['tests/**/*.spec.ts'],
-        // JUnit XML for the CI "Test Report" check (.github/workflows/test-report.yml).
+        // JUnit XML for the CI "Tests" check (.github/workflows/ci.yml).
         reporters: ['junit', ...configDefaults.reporters],
         outputFile: { junit: 'reports/junit.xml' },
     },
