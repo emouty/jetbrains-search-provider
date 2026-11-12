@@ -1,7 +1,9 @@
-import St from 'gi://St';
-import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
-import {normalizeForSearch, normalizePathForSearch} from './searchScoring.js';
+import St from "gi://St";
+import Gio from "gi://Gio";
+import GLib from "gi://GLib";
+import Shell from "gi://Shell";
+import {trySpawn} from "resource:///org/gnome/shell/misc/util.js";
+import {normalizeForSearch, normalizePathForSearch} from "./searchScoring.js";
 
 export class JetBrainsProject {
     name: string;
@@ -44,14 +46,7 @@ export class JetBrainsProject {
 
     private _spawnDetached(argv: string[], origin: string): boolean {
         try {
-            const subprocess = Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
-            subprocess.wait_async(null, (obj, res) => {
-                try {
-                    obj?.wait_finish(res);
-                } catch (e) {
-                    console.warn(`JetBrains Search Provider: ${origin} subprocess error for ${this.name}: ${e}`);
-                }
-            });
+            trySpawn(argv);
             return true;
         } catch (e) {
             console.warn(`JetBrains Search Provider: Failed to launch via ${origin} (${argv[0]}): ${e}`);
@@ -79,7 +74,8 @@ export class JetBrainsProject {
         if (!appInfo) return false;
 
         try {
-            return appInfo.launch_uris([Gio.File.new_for_path(this.path).get_uri()], null);
+            return appInfo.launch_uris([Gio.File.new_for_path(this.path).get_uri()],
+                Shell.Global.get().create_app_launch_context(0, -1));
         } catch (e) {
             console.warn(`JetBrains Search Provider: Failed to launch via app info for ${this.name}: ${e}`);
             return false;
@@ -127,7 +123,7 @@ export class JetBrainsProject {
         return this._toolboxIcon;
     }
 
-    createIcon(size: number, _scaleFactor: number): St.Icon | null {
+    createIcon(size: number): St.Icon | null {
         const projectIconPath = this.getProjectIconPath();
         if (projectIconPath) {
             try {

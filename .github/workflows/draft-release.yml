@@ -1,17 +1,19 @@
 name: Draft Release
 
+# push (not pull_request: closed) so merged fork PRs also run with a writable token
 on:
-  pull_request:
-    types: [ closed ]
+  push:
     branches: [ master ]
+
+concurrency:
+  group: draft-release
+  cancel-in-progress: true
 
 permissions:
   contents: write
 
 jobs:
   draft:
-    if: >-
-      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

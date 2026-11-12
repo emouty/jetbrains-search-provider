@@ -42,7 +42,7 @@ extension follows GNOME 45+ standards and uses ESModules.
     - `moduleResolution`: bundler or node16
     - `strict`: true (enable all strict type checks)
     - `outDir`: dist or output folder
-- Create `ambient.d.ts` for import path mapping
+- Declare `gi://` / `resource://` import mappings in `gnome.d.ts`
 - Set `"type": "module"` in `package.json`
 
 ### Type Safety
@@ -115,11 +115,9 @@ export default class MyPreferences extends ExtensionPreferences {
 ### Connecting Signals
 
 ```typescript
-private
-_signalIds: number[] = [];
+private _signalIds: number[] = [];
 
-enable()
-{
+enable() {
     const id = someObject.connect('signal-name', () => {
         // handler
     });
@@ -130,8 +128,7 @@ enable()
 ### Disconnecting Signals
 
 ```typescript
-disable()
-{
+disable() {
     this._signalIds.forEach(id => {
         someObject.disconnect(id);
     });
@@ -232,11 +229,7 @@ disable()
 ### Initialization
 
 ```typescript
-constructor(metadata
-:
-any
-)
-{
+constructor(metadata: ExtensionMetadata) {
     super(metadata);
     this.initTranslations();
 }
@@ -320,7 +313,6 @@ disable()
 - `metadata.json`
 - `schemas/` folder with compiled schemas if using GSettings
 - `locale/` folder if using translations
-- LICENSE file
 - Necessary assets (icons, stylesheets)
 
 ## Code Quality Standards

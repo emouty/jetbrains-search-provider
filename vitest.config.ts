@@ -21,6 +21,10 @@ export default defineConfig({
                 find: 'resource:///org/gnome/shell/ui/appDisplay.js',
                 replacement: mock('gnome-appDisplay.ts'),
             },
+            {
+                find: 'resource:///org/gnome/shell/misc/util.js',
+                replacement: mock('gnome-util.ts'),
+            },
             // GJS runtime requires .js extensions in TypeScript imports; map them to .ts for tests
             { find: /^(\..+)\.js$/, replacement: '$1.ts' },
         ],
