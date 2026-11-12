@@ -14,14 +14,15 @@ open your projects directly from the Activities overview.
 - **IDE-Specific Icons**: Each project displays with its corresponding IDE icon (IntelliJ IDEA, PyCharm, RustRover,
   etc.)
 - **Multi-IDE Support**: Supports all major JetBrains IDEs including IntelliJ IDEA, PyCharm, RustRover, Android
-  Studio ...
-- **Instant Launch**: Click to open projects directly in their respective IDEs
+  Studio (full list in [src/jetBrainsApp.ts](src/jetBrainsApp.ts))
+- **Instant Launch**: Click to open projects directly in their respective IDEs (JetBrains Toolbox launcher first,
+  then the IDE's desktop entry)
 - **Project Icons**: Shows custom project icons when available, with intelligent fallbacks
 
 ## Usage
 
 1. Open Activities overview (`Super` key)
-2. Start typing your project name
+2. Start typing your project name (matches on the project path also appear, ranked below name matches)
 3. Projects appear grouped by IDE with their respective icons
 4. Click or press Enter to open the project
 
@@ -34,11 +35,12 @@ Access extension preferences through:
 
 ### Available Options
 
-- **Override Results Order**: Prioritize JetBrains projects in search results
+- **Override Results Order**: Place JetBrains projects directly underneath applications in search results. Disable
+  and re-enable the extension for the change to take effect.
 
 ## Installation
 
-zip archive of the latest release from the [releases page](https://github.com/emouty/jetbrains-search-provider/releases)
+Download the zip archive of the latest release from the [releases page](https://github.com/emouty/jetbrains-search-provider/releases)
 and install it using the command line:
 
 ```bash
@@ -46,15 +48,15 @@ gnome-extensions install --force jetbrains-search-provider.zip
 gnome-extensions enable jetbrains-search@emouty.github.com
 ```
 
-Then restart GNOME Shell with by log out/log back in (Wayland).
+Then restart GNOME Shell by logging out and back in (Wayland).
 
 ## Development
 
 ### Prerequisites
 
-- Node.js and npm
-- TypeScript
-- GNOME Shell development environment
+- Node.js and npm (TypeScript and the other build tools come from `npm install`)
+- `zip` and `glib-compile-schemas` (used by `npm run pack`)
+- `mutter-devkit` for the nested session of `npm run debug` (GNOME 50+)
 
 ### Building from Source
 
@@ -73,6 +75,10 @@ npm run setup
 ### Testing
 
 ```bash
+# Unit tests (vitest, no GNOME Shell needed)
+npm test
+
+# Nested GNOME Shell session with the extension installed
 npm run setup && npm run debug
 
 # Monitor logs
