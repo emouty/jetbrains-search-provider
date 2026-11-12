@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -27,5 +27,8 @@ export default defineConfig({
     },
     test: {
         include: ['tests/**/*.spec.ts'],
+        // JUnit XML for the CI "Test Report" check (.github/workflows/test-report.yml).
+        reporters: ['junit', ...configDefaults.reporters],
+        outputFile: { junit: 'reports/junit.xml' },
     },
 });
