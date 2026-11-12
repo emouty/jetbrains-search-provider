@@ -1,0 +1,25 @@
+name: Test Report
+
+# Runs from master with a write token, so fork PRs also get the check.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  report:
+    # superseded pushes cancel CI (cancel-in-progress) before any artifact exists
+    if: github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          artifact: test-results
+          name: Vitest
+          path: '*.xml'
+          reporter: jest-junit
