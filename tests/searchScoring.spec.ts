@@ -3,7 +3,7 @@ import { calculateSearchScore, normalizeForSearch, normalizePathForSearch } from
 
 describe('normalizeForSearch', () => {
     it('lowercases and collapses separators into spaces', () => {
-        expect(normalizeForSearch('Server-Archiver')).toBe('server archiver');
+        expect(normalizeForSearch('My-Web-App')).toBe('my web app');
         expect(normalizeForSearch('server_api')).toBe('server api');
         expect(normalizeForSearch('my.project  name')).toBe('my project name');
     });
@@ -37,11 +37,11 @@ describe('calculateSearchScore', () => {
     });
 
     it('complete word in name → 900', () => {
-        expect(score('backend-archive', '/x', 'archive')).toBe(900);
+        expect(score('backend-web-app', '/x', 'web')).toBe(900);
     });
 
     it('word-start in name → 800', () => {
-        expect(score('backend-archiver', '/x', 'archive')).toBe(800);
+        expect(score('backend-webapp', '/x', 'web')).toBe(800);
     });
 
     it('name-start spanning words → 500', () => {

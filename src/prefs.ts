@@ -3,7 +3,6 @@ import Adw from "gi://Adw";
 
 import {ExtensionPreferences, gettext as _,} from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
-// noinspection JSUnusedGlobalSymbols
 export default class JetBrainsPreferences extends ExtensionPreferences {
     _settings: Gio.Settings | null = null;
 

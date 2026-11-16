@@ -8,7 +8,4 @@ export default {
             Object.assign(this, props);
         }
     },
-    ThemeContext: {
-        get_for_stage: (_stage: unknown) => ({ scaleFactor: 1 }),
-    },
 };

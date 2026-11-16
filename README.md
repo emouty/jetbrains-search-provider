@@ -8,7 +8,7 @@ open your projects directly from the Activities overview.
 
 ## Features
 
-- Supports GNOME Shell 45 and later (see `shell-version` in [metadata.json](metadata.json))
+- Supports the GNOME Shell versions listed in `shell-version` in [metadata.json](metadata.json)
 - **Universal Search**: Find JetBrains projects from GNOME's search overlay
 - **Recent Projects Only**: Searches are limited to projects in each IDE's recent projects list
 - **IDE-Specific Icons**: Each project displays with its corresponding IDE icon (IntelliJ IDEA, PyCharm, RustRover,
@@ -16,7 +16,7 @@ open your projects directly from the Activities overview.
 - **Multi-IDE Support**: Supports all major JetBrains IDEs including IntelliJ IDEA, PyCharm, RustRover, Android
   Studio (full list in [src/jetBrainsApp.ts](src/jetBrainsApp.ts))
 - **Instant Launch**: Click to open projects directly in their respective IDEs (JetBrains Toolbox launcher first,
-  then the IDE's desktop entry)
+  then the IDE's desktop entry, then the IDE command on `PATH`)
 - **Project Icons**: Shows custom project icons when available, with intelligent fallbacks
 
 ## Usage
@@ -31,7 +31,7 @@ open your projects directly from the Activities overview.
 Access extension preferences through:
 
 - Extensions app → JetBrains Project Search → Settings
-- `gnome-extensions prefs jetbrains-search@emouty.github.com`
+- `gnome-extensions prefs jetbrains-search@emouty.github.io`
 
 ### Available Options
 
@@ -45,17 +45,21 @@ and install it using the command line:
 
 ```bash
 gnome-extensions install --force jetbrains-search-provider.zip
-gnome-extensions enable jetbrains-search@emouty.github.com
+gnome-extensions enable jetbrains-search@emouty.github.io
 ```
 
 Then restart GNOME Shell by logging out and back in (Wayland).
+
+`gnome-extensions install` compiles the settings schema. If you unzip the archive into
+`~/.local/share/gnome-shell/extensions/jetbrains-search@emouty.github.io/` by hand instead, run
+`glib-compile-schemas schemas/` in that folder before enabling the extension.
 
 ## Development
 
 ### Prerequisites
 
 - Node.js and npm (TypeScript and the other build tools come from `npm install`)
-- `zip` and `glib-compile-schemas` (used by `npm run pack`)
+- `zip` (used by `npm run pack`)
 - `mutter-devkit` for the nested session of `npm run debug` (GNOME 50+)
 
 ### Building from Source

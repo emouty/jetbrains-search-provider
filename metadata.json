@@ -1,7 +1,7 @@
 {
   "name": "JetBrains Project Search",
-  "description": "Search and open JetBrains IDE projects from GNOME search with IDE-specific icons",
-  "uuid": "jetbrains-search@emouty.github.com",
+  "description": "Search and open JetBrains IDE projects from GNOME search with IDE-specific icons\n\nUnofficial: not affiliated with or endorsed by JetBrains s.r.o.",
+  "uuid": "jetbrains-search@emouty.github.io",
   "shell-version": [
     "45",
     "46",

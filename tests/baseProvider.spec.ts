@@ -33,7 +33,7 @@ function proj(name: string, path: string): JetBrainsProject {
 
 // Replicates BaseJetBrainsProvider._getProjectId
 function id(path: string): string {
-    return `idea-${path.replace(/\//g, '_')}`;
+    return `idea-${path}`;
 }
 
 // ── getInitialResultSet ──────────────────────────────────────────────────────
@@ -66,14 +66,14 @@ describe('getInitialResultSet', () => {
     });
 
     it('word match (900) outranks word-start match (800)', async () => {
-        // 'archive' is a complete word in 'backend-archive' → 900
-        // 'archive' starts a word in 'backend-archiver' → 800
+        // 'web' is a complete word in 'backend-web-app' → 900
+        // 'web' starts a word in 'backend-webapp' → 800
         const p = makeProvider([
-            proj('backend-archiver', '/home/test/backend-archiver'),
-            proj('backend-archive', '/home/test/backend-archive'),
+            proj('backend-webapp', '/home/test/backend-webapp'),
+            proj('backend-web-app', '/home/test/backend-web-app'),
         ]);
-        const [first] = await p.getInitialResultSet(['archive'], neverCancelled);
-        expect(first).toBe(id('/home/test/backend-archive'));
+        const [first] = await p.getInitialResultSet(['web'], neverCancelled);
+        expect(first).toBe(id('/home/test/backend-web-app'));
     });
 
     it('name match outranks path-only match', async () => {
@@ -94,12 +94,12 @@ describe('getInitialResultSet', () => {
             .toEqual([id('/home/test/workspace/other')]);
     });
 
-    it('multi-term: terms joined as phrase match "server-archiver"', async () => {
-        // ['server','archiver'] → searchTerm 'server archiver'
-        // 'server-archiver' normalizes to 'server archiver' → exact match (1000)
-        const p = makeProvider([proj('server-archiver', '/home/test/server-archiver')]);
-        expect(await p.getInitialResultSet(['server', 'archiver'], neverCancelled))
-            .toEqual([id('/home/test/server-archiver')]);
+    it('multi-term: terms joined as phrase match "my-web-app"', async () => {
+        // ['my','web','app'] → searchTerm 'my web app'
+        // 'my-web-app' normalizes to 'my web app' → exact match (1000)
+        const p = makeProvider([proj('my-web-app', '/home/test/my-web-app')]);
+        expect(await p.getInitialResultSet(['my', 'web', 'app'], neverCancelled))
+            .toEqual([id('/home/test/my-web-app')]);
     });
 
     it('dash in name treated same as space in search', async () => {

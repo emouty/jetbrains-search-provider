@@ -4,9 +4,8 @@ import GLib from "gi://GLib";
 /**
  * Shared, per-enable cache of the filesystem scans every provider needs.
  *
- * All eleven providers used to enumerate ~/.local/share/applications and
- * ~/.config/JetBrains independently. This class performs each scan once and
- * memoizes the in-flight Promise, so concurrent provider initialization still
+ * Each scan of ~/.local/share/applications and ~/.config/JetBrains runs once:
+ * the in-flight Promise is memoized, so concurrent provider initialization
  * triggers exactly one enumeration per directory. The instance is created in
  * Extension.enable() and dropped in disable(); nothing is cached at module level.
  *
