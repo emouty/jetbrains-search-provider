@@ -55,8 +55,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * the provider initialization. It performs asynchronous operations that
      * cannot be done in the constructor.
      *
-     * @async
-     * @param {Gio.Cancellable | null} cancellable - Optional cancellable for the operation
+     * @param cancellable - Optional cancellable for the operation
      */
     async initialize(cancellable: Gio.Cancellable | null = null): Promise<void> {
         if (cancellable?.is_cancelled()) {
@@ -94,66 +93,19 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
     }
 
     private _getProjectId(project: JetBrainsProject): string {
-        return `${this.jetbrainsApp.exec}-${project.path.replace(/\//g, '_')}`;
+        return `${this.jetbrainsApp.exec}-${project.path}`;
     }
 
     get canLaunchSearch(): boolean {
         return false;
     }
 
-    // noinspection JSUnusedGlobalSymbols
     get id(): string {
         return `${this.extension.uuid}-${this.jetbrainsApp.exec}`;
     }
 
-    // noinspection JSUnusedGlobalSymbols
-    get appInfo(): Gio.AppInfo {
-        if (this.app && this.app.get_app_info()) {
-            return this.app.get_app_info();
-        }
-
-        const uniqueId = `jetbrains-${this.jetbrainsApp.exec}-${this.jetbrainsApp.name.toLowerCase().replace(/\s+/g, '-')}`;
-        return {
-            get_name: () => this.jetbrainsApp.name,
-            get_display_name: () => this.jetbrainsApp.name,
-            get_description: () => `${this.jetbrainsApp.name} Projects`,
-            get_icon: () => this._createFallbackIcon(),
-            get_executable: () => this.jetbrainsApp.exec,
-            get_commandline: () => this.jetbrainsApp.exec,
-            get_id: () => uniqueId,
-            equal: (other: Gio.AppInfo) => other && other.get_id && other.get_id() === uniqueId,
-            should_show: () => true,
-            get_categories: () => null,
-            get_keywords: () => [],
-            launch: () => false,
-            launch_uris: () => false,
-            launch_uris_async: () => {},
-            supports_files: () => false,
-            supports_uris: () => false,
-            can_delete: () => false,
-            delete: () => false,
-            dup: () => null,
-        } as unknown as Gio.AppInfo;
-    }
-
-    private _createFallbackIcon(): Gio.Icon | null {
-        if (!this.resolvedToolboxDir) return null;
-
-        const homeDir = GLib.get_home_dir();
-        const iconPath = GLib.build_filenamev([
-            homeDir, '.local', 'share', 'JetBrains', 'Toolbox', 'apps',
-            this.resolvedToolboxDir, 'bin', this.jetbrainsApp.iconFile
-        ]);
-
-        const iconFile = Gio.File.new_for_path(iconPath);
-        if (iconFile.query_exists(null)) {
-            try {
-                return new Gio.FileIcon({file: iconFile});
-            } catch (e) {
-                console.warn(`JetBrains Search Provider: Could not create fallback icon: ${e}`);
-            }
-        }
-        return null;
+    get appInfo(): Gio.AppInfo | null {
+        return this.app?.get_app_info() ?? null;
     }
 
     /**
@@ -168,10 +120,9 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      *
      * If @cancellable is triggered, this method should throw an error.
      *
-     * @async
-     * @param {string[]} terms - The search terms
-     * @param {Gio.Cancellable} cancellable - A cancellable for the operation
-     * @returns {Promise<string[]>} A list of result identifiers
+     * @param terms - The search terms
+     * @param cancellable - A cancellable for the operation
+     * @returns A list of result identifiers
      */
     async getInitialResultSet(terms: string[], cancellable: Gio.Cancellable): Promise<string[]> {
         if (cancellable.is_cancelled()) {
@@ -208,11 +159,10 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      *
      * If @cancellable is triggered, this method should throw an error.
      *
-     * @async
-     * @param {string[]} previousResults - The original result set
-     * @param {string[]} terms - The search terms
-     * @param {Gio.Cancellable} cancellable - A cancellable for the operation
-     * @returns {Promise<string[]>} A list of refined result identifiers
+     * @param previousResults - The original result set
+     * @param terms - The search terms
+     * @param cancellable - A cancellable for the operation
+     * @returns A list of refined result identifiers
      */
     async getSubsearchResultSet(previousResults: string[], terms: string[], cancellable: Gio.Cancellable): Promise<string[]> {
         if (cancellable.is_cancelled()) {
@@ -247,17 +197,14 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      *
      * If @cancellable is triggered, this method should throw an error.
      *
-     * @async
-     * @param {string[]} results - The result identifiers
-     * @param {Gio.Cancellable} cancellable - A cancellable for the operation
-     * @returns {Promise<ResultMeta[]>} A list of result metadata objects
+     * @param results - The result identifiers
+     * @param cancellable - A cancellable for the operation
+     * @returns A list of result metadata objects
      */
     async getResultMetas(results: string[], cancellable: Gio.Cancellable): Promise<ResultMeta[]> {
         if (cancellable.is_cancelled()) {
             throw new Error('Operation cancelled');
         }
-
-        const {scaleFactor} = St.ThemeContext.get_for_stage(Shell.Global.get().stage);
 
         return results.map(id => {
             const project = this._projectsById.get(id);
@@ -276,7 +223,7 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
             const createIcon = (size: number) => {
                 try {
-                    const projectIcon = project.createIcon(size, scaleFactor);
+                    const projectIcon = project.createIcon(size);
                     if (projectIcon) {
                         return projectIcon;
                     }
@@ -316,14 +263,11 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * This method is called to truncate the number of search results.
      * Simply returns the first n-items when the result count exceeds maxResults.
      *
-     * @param {string[]} results - The original result set
-     * @param {number} maxResults - The maximum amount of results
-     * @returns {string[]} The filtered results
+     * @param results - The original result set
+     * @param maxResults - The maximum amount of results
+     * @returns The filtered results
      */
     filterResults(results: string[], maxResults: number): string[] {
-        if (results.length <= maxResults) {
-            return results;
-        }
         return results.slice(0, maxResults);
     }
 
@@ -333,24 +277,23 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
      * This method is called when a search provider result is activated.
      * It finds the corresponding JetBrains project and launches it in the IDE.
      *
-     * @param {string} id - The result identifier
-     * @param {string[]} _terms - The search terms (unused)
+     * @param id - The result identifier
+     * @param _terms - The search terms (unused)
      */
     activateResult(id: string, _terms: string[]): void {
         this._projectsById.get(id)?.launch(this.app?.get_app_info() ?? null);
     }
 
-    // noinspection JSUnusedGlobalSymbols
     launchSearch(_terms: string[]): void {
+        this.app?.activate();
     }
 
     /**
-     *
      * This method is called to create an actor to represent a search result.
      * JetBrains providers use the default implementation.
      *
-     * @param {ResultMeta} _meta - A result metadata object
-     * @returns {null} Always returns null to use the default implementation
+     * @param _meta - A result metadata object
+     * @returns Always returns null to use the default implementation
      */
     createResultObject(_meta: ResultMeta): null {
         return null;

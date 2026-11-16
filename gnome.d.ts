@@ -26,6 +26,11 @@ declare module "resource:///org/gnome/shell/ui/main.js" {
     }
 }
 
+// The shell ships trySpawn in misc/util.js, but @girs/gnome-shell does not type it.
+declare module "resource:///org/gnome/shell/misc/util.js" {
+    export function trySpawn(argv: string[]): void;
+}
+
 declare module "resource:///org/gnome/shell/ui/appDisplay.js" {
     export interface ResultMeta {
         id: string;

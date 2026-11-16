@@ -7,7 +7,6 @@ import AndroidStudioProvider from "./androidStudioProvider.js";
 import {JETBRAINS_APPS} from "./jetBrainsApp.js";
 import {ScanCache} from "./scanCache.js";
 
-// noinspection JSUnusedGlobalSymbols
 export default class JetBrainsSearchProviderExtension extends Extension {
     providers: AppSearchProvider[] = [];
     settings: Gio.Settings | null = null;

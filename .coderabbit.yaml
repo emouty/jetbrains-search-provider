@@ -380,9 +380,8 @@ reviews:
         - Ensure translation domain matches extension's gettext-domain
         
         ## Schema Compilation
-        - Note that schema must be compiled with glib-compile-schemas
+        - The zip ships only the schema XML: `gnome-extensions install` and the extensions.gnome.org installer compile it
         - Verify schema compiles without errors before distribution
-        - Ensure compiled schema (gschemas.compiled) is included in distribution
         - Check that schema is placed in schemas/ subdirectory of extension
         
         ## Best Practices

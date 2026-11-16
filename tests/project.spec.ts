@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type Gio from 'gi://Gio';
-import { __reset, __setFiles, __getSpawnedArgv } from './mocks/gi-Gio.js';
+import { __reset, __setFiles } from './mocks/gi-Gio.js';
+import { __launchContext } from './mocks/gi-Shell.js';
+import { __getSpawnedArgv, __resetSpawned } from './mocks/gnome-util.js';
 import { JetBrainsProject } from '../src/project.js';
 
 const PROJECT_PATH = '/home/test/work/app';
@@ -13,10 +15,13 @@ function proj(toolboxDir: string | null): JetBrainsProject {
 /** Minimal stand-in for the provider's Gio.AppInfo; launch() only calls launch_uris. */
 function fakeAppInfo(result: boolean | Error) {
     const calls: string[][] = [];
+    const contexts: unknown[] = [];
     const appInfo = {
         calls,
-        launch_uris: (uris: string[]) => {
+        contexts,
+        launch_uris: (uris: string[], context: unknown) => {
             calls.push(uris);
+            contexts.push(context);
             if (result instanceof Error) throw result;
             return result;
         },
@@ -26,6 +31,7 @@ function fakeAppInfo(result: boolean | Error) {
 
 beforeEach(() => {
     __reset();
+    __resetSpawned();
 });
 
 describe('launch', () => {
@@ -45,6 +51,7 @@ describe('launch', () => {
         proj(null).launch(appInfo as unknown as Gio.AppInfo);
 
         expect(appInfo.calls).toEqual([[`file://${PROJECT_PATH}`]]);
+        expect(appInfo.contexts).toEqual([__launchContext]);
         expect(__getSpawnedArgv()).toEqual([]);
     });
 

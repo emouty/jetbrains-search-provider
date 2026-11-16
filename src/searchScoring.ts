@@ -6,8 +6,8 @@
 
 /**
  * Normalize a name for matching: collapse any separator (-, _, space, .)
- * into a single space. This lets "server archiver" (two GNOME terms)
- * match "server-archiver".
+ * into a single space. This lets "my web app" (three GNOME terms)
+ * match "my-web-app".
  */
 export function normalizeForSearch(s: string): string {
     return s.toLowerCase().replace(/[-_\s.]+/g, ' ').trim();
