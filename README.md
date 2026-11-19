@@ -6,6 +6,8 @@ open your projects directly from the Activities overview.
 > **Disclaimer**: This extension is not affiliated with, endorsed by, or in any way officially connected to JetBrains
 > s.r.o. JetBrains and all related trademarks are property of their respective owners.
 
+![Searching "inte": IntelliJ IDEA projects listed under the applications](docs/screenshots/search-intellij.png)
+
 ## Features
 
 - Supports the GNOME Shell versions listed in `shell-version` in [metadata.json](metadata.json)
@@ -25,6 +27,14 @@ open your projects directly from the Activities overview.
 2. Start typing your project name (matches on the project path also appear, ranked below name matches)
 3. Projects appear grouped by IDE with their respective icons
 4. Click or press Enter to open the project
+
+A project opened in several IDEs appears once per IDE:
+
+![Searching "mem0": the same project under IntelliJ IDEA and PyCharm](docs/screenshots/search-multi-ide.png)
+
+Every supported IDE gets its own result group, CLion included:
+
+![Searching "codeb": a CLion project](docs/screenshots/search-clion.png)
 
 ## Configuration
 
