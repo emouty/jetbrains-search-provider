@@ -13,8 +13,8 @@ permissions:
 
 jobs:
   release:
-    # the job pushes HEAD to master: a dispatch from another branch would bypass review
-    if: github.ref == 'refs/heads/master'
+    # the job pushes HEAD to main: a dispatch from another branch would bypass review
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       # never interpolate the raw input into a run: block
@@ -44,7 +44,7 @@ jobs:
           git add package.json package-lock.json
           git commit -m "chore: release $VERSION"
           git tag "$VERSION"
-          git push origin HEAD:master
+          git push origin HEAD:main
           git push origin "$VERSION"
 
       - name: Create GitHub Release
