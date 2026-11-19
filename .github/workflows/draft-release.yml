@@ -3,7 +3,7 @@ name: Draft Release
 # push (not pull_request: closed) so merged fork PRs also run with a writable token
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 concurrency:
   group: draft-release
@@ -33,4 +33,4 @@ jobs:
             -q '.[] | select(.isDraft) | .tagName' |
             xargs -r -n1 gh release delete --yes
           gh release create "$next" --draft --generate-notes \
-            --target master --title "$next"
+            --target main --title "$next"
