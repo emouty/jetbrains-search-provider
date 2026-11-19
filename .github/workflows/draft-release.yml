@@ -25,12 +25,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           latest=$(git tag --sort=-v:refname | head -1)
-          latest=${latest:-0.0.0}
-          IFS=. read -r major minor _ <<< "$latest"
+          IFS=. read -r major minor _ <<< "${latest:-0.0.0}"
           next="$major.$((minor + 1)).0"
           # single rolling draft: drop the old one so notes regenerate
           gh release list --json tagName,isDraft \
             -q '.[] | select(.isDraft) | .tagName' |
             xargs -r -n1 gh release delete --yes
           gh release create "$next" --draft --generate-notes \
+            ${latest:+--notes-start-tag "$latest"} \
             --target main --title "$next"
