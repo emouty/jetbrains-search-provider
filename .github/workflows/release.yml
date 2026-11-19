@@ -21,6 +21,9 @@ jobs:
       VERSION: ${{ github.event.inputs.version }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # deploy key on the main ruleset's bypass list: GITHUB_TOKEN cannot bypass a ruleset on a user-owned repo
+          ssh-key: ${{ secrets.RELEASE_SSH_KEY }}
 
       - uses: actions/setup-node@v7
         with:
@@ -41,32 +44,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # committed through the API so GitHub signs it: the main ruleset requires signed commits
-          oid=$(jq -n \
-            --arg repo "$GITHUB_REPOSITORY" \
-            --arg head "$GITHUB_SHA" \
-            --arg msg "chore: release $VERSION" \
-            --rawfile pkg package.json \
-            --rawfile lock package-lock.json \
-            '{query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }",
-              variables: {input: {
-                branch: {repositoryNameWithOwner: $repo, branchName: "main"},
-                expectedHeadOid: $head,
-                message: {headline: $msg},
-                fileChanges: {additions: [
-                  {path: "package.json", contents: ($pkg | @base64)},
-                  {path: "package-lock.json", contents: ($lock | @base64)}]}}}}' |
-            gh api graphql --input - --jq .data.createCommitOnBranch.commit.oid)
-          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$VERSION" -f sha="$oid"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore: release $VERSION"
+          git tag "$VERSION"
+          # drop the rolling draft before pushing: a deploy-key push triggers draft-release.yml,
+          # which must find the new tag and draft the next version without this job deleting it
+          gh release list --json tagName,isDraft \
+            -q '.[] | select(.isDraft) | .tagName' |
+            xargs -r -n1 gh release delete --yes
+          git push --atomic origin HEAD:main "$VERSION"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # drop rolling draft (see draft-release.yml); its notes are superseded by this release
-          gh release list --json tagName,isDraft \
-            -q '.[] | select(.isDraft) | .tagName' |
-            xargs -r -n1 gh release delete --yes
           gh release create "$VERSION" \
             jetbrains-search-provider.zip \
             --title "$VERSION" \
