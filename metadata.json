@@ -1,5 +1,5 @@
 {
-  "name": "JetBrains Project Search",
+  "name": "JetBrains Search Provider",
   "description": "Search and open JetBrains IDE projects from GNOME search with IDE-specific icons\n\nUnofficial: not affiliated with or endorsed by JetBrains s.r.o.",
   "uuid": "jetbrains-search@emouty.github.io",
   "shell-version": [

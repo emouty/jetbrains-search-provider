@@ -1,4 +1,4 @@
-# JetBrains Project Search Provider
+# JetBrains Search Provider
 
 A GNOME Shell extension that integrates JetBrains IDE projects into the system search, allowing you to quickly find and
 open your projects directly from the Activities overview.
@@ -40,7 +40,7 @@ Every supported IDE gets its own result group, CLion included:
 
 Access extension preferences through:
 
-- Extensions app → JetBrains Project Search → Settings
+- Extensions app → JetBrains Search Provider → Settings
 - `gnome-extensions prefs jetbrains-search@emouty.github.io`
 
 ### Available Options
