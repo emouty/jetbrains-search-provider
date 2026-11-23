@@ -5,4 +5,8 @@ export class Extension {
         Object.assign(this, meta);
         this.uuid = (meta['uuid'] as string) ?? 'test-uuid';
     }
+
+    getSettings(_schema?: string) {
+        return { get_boolean: (_key: string) => false };
+    }
 }

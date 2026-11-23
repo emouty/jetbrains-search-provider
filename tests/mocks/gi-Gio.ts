@@ -17,6 +17,52 @@ export function __setFiles(map: Record<string, string | null>): void {
 export function __reset(): void {
     nodes.clear();
     enumerateCounts.clear();
+    monitors.length = 0;
+    unmonitorablePaths.clear();
+}
+
+const FileMonitorEvent = { CHANGED: 0, CHANGES_DONE_HINT: 1, DELETED: 2, CREATED: 3 };
+
+type ChangedHandler = (monitor: FakeFileMonitor, file: FakeFile, otherFile: null, event: number) => void;
+
+class FakeFileMonitor {
+    readonly handlers = new Map<number, ChangedHandler>();
+    cancelled = false;
+    private nextId = 1;
+
+    constructor(readonly path: string) {}
+
+    connect(_signal: 'changed', handler: ChangedHandler): number {
+        this.handlers.set(this.nextId, handler);
+        return this.nextId++;
+    }
+
+    disconnect(id: number): void { this.handlers.delete(id); }
+
+    cancel(): boolean { this.cancelled = true; return true; }
+}
+
+const monitors: FakeFileMonitor[] = [];
+const unmonitorablePaths = new Set<string>();
+
+/** Make File.monitor_file() throw for `path`. */
+export function __failMonitorFor(path: string): void {
+    unmonitorablePaths.add(path);
+}
+
+/** Monitors created through File.monitor_file(), in creation order. */
+export function __getMonitors(): readonly FakeFileMonitor[] {
+    return monitors;
+}
+
+/** Deliver a 'changed' event to every live monitor on `path`. */
+export function __emitFileChange(path: string, event: number): void {
+    for (const monitor of monitors) {
+        if (monitor.path !== path || monitor.cancelled) continue;
+        for (const handler of monitor.handlers.values()) {
+            handler(monitor, new FakeFile(path), null, event);
+        }
+    }
 }
 
 /** Number of times a directory was enumerated (sync + async combined). */
@@ -85,6 +131,15 @@ class FakeFile {
         return `file://${this.path}`;
     }
 
+    monitor_file(_flags: number, _cancellable: unknown): FakeFileMonitor {
+        if (unmonitorablePaths.has(this.path)) {
+            throw new Error(`Cannot monitor ${this.path}`);
+        }
+        const monitor = new FakeFileMonitor(this.path);
+        monitors.push(monitor);
+        return monitor;
+    }
+
     load_contents(cancellable?: unknown): [boolean, Uint8Array | null] {
         checkCancelled(cancellable);
         const node = nodes.get(this.path);
@@ -142,8 +197,14 @@ class FakeFile {
 
 export default {
     File: { new_for_path: (path: string) => new FakeFile(path) },
-    Cancellable: class Cancellable { is_cancelled() { return false; } },
+    Cancellable: class Cancellable {
+        private cancelled = false;
+        cancel() { this.cancelled = true; }
+        is_cancelled() { return this.cancelled; }
+    },
     FileQueryInfoFlags: { NONE: 0 },
+    FileMonitorFlags: { NONE: 0 },
+    FileMonitorEvent,
     FileType,
     FileIcon: class FileIcon { constructor(p: unknown) { Object.assign(this as object, p ?? {}); } },
 };

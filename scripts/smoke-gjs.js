@@ -18,7 +18,7 @@ let status = 0;
         const scanCache = new ScanCache();
         for (const app of JETBRAINS_APPS) {
             const found = await findJetBrainsApp(app, scanCache, null);
-            const projects = await loadProjects(app, scanCache, {
+            const {projects} = await loadProjects(app, scanCache, {
                 includeGoogleConfigDir: false,
             }, null);
             print(`${app.name}: app=${found ? 'yes' : 'no'} projects=${projects.length}`);

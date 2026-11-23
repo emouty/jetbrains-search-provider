@@ -47,8 +47,8 @@ function stage(keys: string[], extra: Record<string, string | null> = {}): void 
     });
 }
 
-function load(opts: Partial<ProjectLoaderOptions> = {}, app: JetBrainsApp = ideaApp) {
-    return loadProjects(app, new ScanCache(), { ...defaultOpts, ...opts }, neverCancelled);
+async function load(opts: Partial<ProjectLoaderOptions> = {}, app: JetBrainsApp = ideaApp) {
+    return (await loadProjects(app, new ScanCache(), { ...defaultOpts, ...opts }, neverCancelled)).projects;
 }
 
 beforeEach(() => {
@@ -104,6 +104,17 @@ describe('XML entity decoding', () => {
             '/home/test/work/x<y': null,
         });
         expect((await load()).map(p => p.path)).toEqual(['/home/test/work/x&lt;y']);
+    });
+});
+
+describe('watched XML paths', () => {
+    it('lists recentProjects.xml of every matching config dir, written yet or not', async () => {
+        stage([], { [`${JETBRAINS_DIR}/IntelliJIdea2025.2`]: null, [`${JETBRAINS_DIR}/PyCharm2025.1`]: null });
+        const { xmlPaths } = await loadProjects(ideaApp, new ScanCache(), defaultOpts, neverCancelled);
+        expect(xmlPaths.sort()).toEqual([
+            `${IDEA_DIR}/options/recentProjects.xml`,
+            `${JETBRAINS_DIR}/IntelliJIdea2025.2/options/recentProjects.xml`,
+        ]);
     });
 });
 
