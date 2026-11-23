@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import type Gio from 'gi://Gio';
+import { describe, it, expect, beforeEach } from 'vitest';
+import Gio from 'gi://Gio';
 import type { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import { __emitFileChange, __failMonitorFor, __getMonitors, __reset, __setFiles } from './mocks/gi-Gio.js';
 import BaseJetBrainsProvider from '../src/baseProvider.js';
 import { JetBrainsProject } from '../src/project.js';
 import type { JetBrainsApp } from '../src/jetBrainsApp.js';
-import type { ScanCache } from '../src/scanCache.js';
+import { ScanCache } from '../src/scanCache.js';
 
 const ideaApp: JetBrainsApp = {
     name: 'IntelliJ IDEA',
@@ -333,5 +334,89 @@ describe('projects assignment', () => {
         p.activateResult(id('/home/test/backend'), []);
         p.activateResult('idea-_nonexistent', []);
         expect(launched).toBe(1);
+    });
+});
+
+// ── watchProjects ────────────────────────────────────────────────────────────
+
+describe('watchProjects', () => {
+    const XML = '/home/test/.config/JetBrains/IntelliJIdea2025.1/options/recentProjects.xml';
+    const xmlWith = (...keys: string[]) =>
+        `<application>${keys.map(k => `<entry key="${k}"/>`).join('')}</application>`;
+
+    beforeEach(() => {
+        __reset();
+        __setFiles({
+            '/home/test/.config/JetBrains': null,
+            '/home/test/.config/JetBrains/IntelliJIdea2025.1': null,
+            [XML]: xmlWith('$USER_HOME$/work/app'),
+            '/home/test/work/app': null,
+            '/home/test/work/keycloak': null,
+        });
+    });
+
+    async function watchedProvider(onReloaded: () => void): Promise<BaseJetBrainsProvider> {
+        const p = new BaseJetBrainsProvider(fakeExtension, ideaApp, new ScanCache());
+        await p.initialize(neverCancelled);
+        p.watchProjects(onReloaded);
+        return p;
+    }
+
+    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    it('reloads the projects once the IDE finishes writing the file', async () => {
+        let reloads = 0;
+        const p = await watchedProvider(() => reloads++);
+        __setFiles({ [XML]: xmlWith('$USER_HOME$/work/app', '$USER_HOME$/work/keycloak') });
+
+        __emitFileChange(XML, Gio.FileMonitorEvent.CHANGED);
+        await settle();
+        expect(reloads).toBe(0);
+
+        __emitFileChange(XML, Gio.FileMonitorEvent.CHANGES_DONE_HINT);
+        await settle();
+        expect(reloads).toBe(1);
+        expect(p.projects.map(project => project.name).sort()).toEqual(['app', 'keycloak']);
+    });
+
+    it('stops reloading after unwatchProjects', async () => {
+        let reloads = 0;
+        const p = await watchedProvider(() => reloads++);
+
+        p.unwatchProjects();
+        __emitFileChange(XML, Gio.FileMonitorEvent.CHANGES_DONE_HINT);
+        await settle();
+
+        expect(reloads).toBe(0);
+        expect(__getMonitors()).not.toHaveLength(0);
+        expect(__getMonitors().every(monitor => monitor.cancelled && monitor.handlers.size === 0)).toBe(true);
+    });
+
+    it('keeps watching the other files when one cannot be monitored', async () => {
+        const otherXml = '/home/test/.config/JetBrains/IntelliJIdea2025.2/options/recentProjects.xml';
+        __setFiles({
+            '/home/test/.config/JetBrains/IntelliJIdea2025.2': null,
+            [otherXml]: xmlWith('$USER_HOME$/work/keycloak'),
+        });
+        __failMonitorFor(XML);
+        let reloads = 0;
+        const p = await watchedProvider(() => reloads++);
+
+        __emitFileChange(otherXml, Gio.FileMonitorEvent.CHANGES_DONE_HINT);
+        await settle();
+
+        expect(reloads).toBe(1);
+        expect(p.projects.map(project => project.name).sort()).toEqual(['app', 'keycloak']);
+    });
+
+    it('drops a reload still in flight when unwatched', async () => {
+        let reloads = 0;
+        const p = await watchedProvider(() => reloads++);
+
+        __emitFileChange(XML, Gio.FileMonitorEvent.CHANGES_DONE_HINT);
+        p.unwatchProjects();
+        await settle();
+
+        expect(reloads).toBe(0);
     });
 });

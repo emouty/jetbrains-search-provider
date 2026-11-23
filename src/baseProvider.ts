@@ -9,7 +9,7 @@ import {JetBrainsProject} from "./project.js";
 import {JetBrainsApp} from "./jetBrainsApp.js";
 import {calculateSearchScore, normalizeForSearch} from "./searchScoring.js";
 import {findJetBrainsApp} from "./appDiscovery.js";
-import {loadProjects} from "./projectLoader.js";
+import {loadProjects, ProjectLoaderOptions} from "./projectLoader.js";
 import {ScanCache} from "./scanCache.js";
 
 /**
@@ -29,6 +29,10 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
     private _projects: JetBrainsProject[] = [];
     private _projectsById = new Map<string, JetBrainsProject>();
+    private _loaderOptions: ProjectLoaderOptions | null = null;
+    private _xmlPaths: string[] = [];
+    private _monitors: {monitor: Gio.FileMonitor, handlerId: number}[] = [];
+    private _reloadCancellable: Gio.Cancellable | null = null;
 
     // Set by GNOME Shell's search framework when the provider is registered
     display!: Clutter.Actor;
@@ -70,10 +74,71 @@ export default class BaseJetBrainsProvider implements AppSearchProvider {
 
         this.resolvedToolboxDir = this._resolveToolboxDir(cancellable);
 
-        this.projects = await loadProjects(this.jetbrainsApp, this.scanCache, {
+        this._loaderOptions = {
             includeGoogleConfigDir: this.usesGoogleConfigDir(),
             resolvedToolboxDir: this.resolvedToolboxDir,
-        }, cancellable);
+        };
+        const loaded = await loadProjects(this.jetbrainsApp, this.scanCache, this._loaderOptions, cancellable);
+        this.projects = loaded.projects;
+        this._xmlPaths = loaded.xmlPaths;
+    }
+
+    /**
+     * Reload the projects whenever the IDE finishes rewriting one of the recentProjects.xml files
+     * found by {@link initialize}, then call `onReloaded`.
+     *
+     * The IDE saves that file when it loses focus, at most once every 5 minutes, so a newly
+     * opened project can take that long to show up. Config dirs created after initialize
+     * (an IDE upgrade) are not watched until the extension is re-enabled.
+     */
+    watchProjects(onReloaded: () => void): void {
+        for (const path of this._xmlPaths) {
+            let monitor: Gio.FileMonitor;
+            try {
+                monitor = Gio.File.new_for_path(path).monitor_file(Gio.FileMonitorFlags.NONE, null);
+            } catch (e) {
+                // The projects loaded at enable stay searchable, without live reload for this file.
+                console.warn(`JetBrains Search Provider: Cannot watch ${path}: ${e}`);
+                continue;
+            }
+            const handlerId = monitor.connect('changed', (_monitor, _file, _otherFile, event) => {
+                if (event === Gio.FileMonitorEvent.CHANGES_DONE_HINT) {
+                    void this._reloadProjects(onReloaded);
+                }
+            });
+            this._monitors.push({monitor, handlerId});
+        }
+    }
+
+    /** Stop the monitors from {@link watchProjects} and cancel any reload in flight. */
+    unwatchProjects(): void {
+        this._reloadCancellable?.cancel();
+        this._reloadCancellable = null;
+        for (const {monitor, handlerId} of this._monitors) {
+            monitor.disconnect(handlerId);
+            monitor.cancel();
+        }
+        this._monitors = [];
+    }
+
+    private async _reloadProjects(onReloaded: () => void): Promise<void> {
+        if (!this._loaderOptions) return;
+
+        this._reloadCancellable?.cancel();
+        const cancellable = new Gio.Cancellable();
+        this._reloadCancellable = cancellable;
+
+        try {
+            // A fresh ScanCache: the shared one still holds the XML read at enable time.
+            const loaded = await loadProjects(this.jetbrainsApp, new ScanCache(), this._loaderOptions, cancellable);
+            if (cancellable.is_cancelled()) return;
+            this.projects = loaded.projects;
+            onReloaded();
+        } catch (e) {
+            if (!cancellable.is_cancelled()) {
+                console.warn(`JetBrains Search Provider: Error reloading ${this.jetbrainsApp.name} projects: ${e}`);
+            }
+        }
     }
 
     /** First Toolbox edition directory that exists, or null when none is installed. */

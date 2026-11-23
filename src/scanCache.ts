@@ -175,19 +175,27 @@ export class ScanCache {
         }
     }
 
+    /** Path of <configDir>/options/recentProjects.xml under ~/.config/JetBrains. */
+    recentProjectsXmlPath(configDirName: string): string {
+        return GLib.build_filenamev([this._jetbrainsConfigDir, configDirName, 'options', 'recentProjects.xml']);
+    }
+
+    /** Same, under ~/.config/Google (Android Studio only). */
+    googleRecentProjectsXmlPath(configDirName: string): string {
+        return GLib.build_filenamev([this._googleConfigDir, configDirName, 'options', 'recentProjects.xml']);
+    }
+
     /** Memoized read of <configDir>/options/recentProjects.xml. */
     getRecentProjectsXml(configDirName: string, cancellable: Gio.Cancellable | null = null): Promise<string | null> {
-        return this._getRecentProjectsXml(this._jetbrainsConfigDir, configDirName, cancellable);
+        return this._getRecentProjectsXml(this.recentProjectsXmlPath(configDirName), cancellable);
     }
 
     /** Same, for config dirs under ~/.config/Google (Android Studio only). */
     getGoogleRecentProjectsXml(configDirName: string, cancellable: Gio.Cancellable | null = null): Promise<string | null> {
-        return this._getRecentProjectsXml(this._googleConfigDir, configDirName, cancellable);
+        return this._getRecentProjectsXml(this.googleRecentProjectsXmlPath(configDirName), cancellable);
     }
 
-    private _getRecentProjectsXml(root: string, configDirName: string,
-                                  cancellable: Gio.Cancellable | null): Promise<string | null> {
-        const path = GLib.build_filenamev([root, configDirName, 'options', 'recentProjects.xml']);
+    private _getRecentProjectsXml(path: string, cancellable: Gio.Cancellable | null): Promise<string | null> {
         let promise = this._recentProjectsXml.get(path);
         if (!promise) {
             const created = this._loadTextFile(path, cancellable);

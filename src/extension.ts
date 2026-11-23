@@ -11,6 +11,7 @@ export default class JetBrainsSearchProviderExtension extends Extension {
     providers: AppSearchProvider[] = [];
     settings: Gio.Settings | null = null;
     private _initCancellable: Gio.Cancellable | null = null;
+    private _watchedProviders: BaseJetBrainsProvider[] = [];
 
     enable() {
         this.settings = this.getSettings('org.gnome.shell.extensions.jetbrains-search');
@@ -50,30 +51,43 @@ export default class JetBrainsSearchProviderExtension extends Extension {
                 return;
             }
 
-            if (provider.projects.length === 0) {
-                return;
-            }
-
-            this.providers.push(provider);
-            Main.overview.searchController.addProvider(provider);
-
-            // provider.display stays unset when the shell skips the provider (parental controls).
-            if (this.settings?.get_boolean("override-results-order") && provider.display) {
-                try {
-                    const searchResults = Main.overview.searchController._searchResults;
-                    searchResults._content.remove_child(provider.display);
-                    searchResults._content.insert_child_at_index(provider.display, this.providers.length);
-                } catch (e) {
-                    console.warn(`JetBrains Search Provider: Could not reorder ${JETBRAINS_APPS[i].name} results: ${e}`);
-                }
-            }
+            const name = JETBRAINS_APPS[i].name;
+            this._watchedProviders.push(provider);
+            provider.watchProjects(() => this._registerProvider(provider, name));
+            this._registerProvider(provider, name);
         });
+    }
+
+    /** Add the provider to the shell search once it has projects; a reload can bring the first ones. */
+    private _registerProvider(provider: BaseJetBrainsProvider, name: string) {
+        if (provider.projects.length === 0 || this.providers.includes(provider)) {
+            return;
+        }
+
+        this.providers.push(provider);
+        Main.overview.searchController.addProvider(provider);
+
+        // provider.display stays unset when the shell skips the provider (parental controls).
+        if (this.settings?.get_boolean("override-results-order") && provider.display) {
+            try {
+                const searchResults = Main.overview.searchController._searchResults;
+                searchResults._content.remove_child(provider.display);
+                searchResults._content.insert_child_at_index(provider.display, this.providers.length);
+            } catch (e) {
+                console.warn(`JetBrains Search Provider: Could not reorder ${name} results: ${e}`);
+            }
+        }
     }
 
     disable() {
         this._initCancellable?.cancel();
         this._initCancellable = null;
         this.settings = null;
+
+        for (const provider of this._watchedProviders) {
+            provider.unwatchProjects();
+        }
+        this._watchedProviders = [];
 
         for (const provider of this.providers) {
             Main.overview.searchController.removeProvider(provider);

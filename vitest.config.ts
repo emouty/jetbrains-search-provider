@@ -22,6 +22,10 @@ export default defineConfig({
                 replacement: mock('gnome-appDisplay.ts'),
             },
             {
+                find: 'resource:///org/gnome/shell/ui/main.js',
+                replacement: mock('gnome-main.ts'),
+            },
+            {
                 find: 'resource:///org/gnome/shell/misc/util.js',
                 replacement: mock('gnome-util.ts'),
             },

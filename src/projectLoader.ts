@@ -77,19 +77,28 @@ function parseRecentProjects(xml: string, jetbrainsApp: JetBrainsApp, resolvedTo
     }
 }
 
+export interface LoadedProjects {
+    projects: JetBrainsProject[];
+    /** recentProjects.xml of every matching config dir, including the ones not written yet. */
+    xmlPaths: string[];
+}
+
 export async function loadProjects(jetbrainsApp: JetBrainsApp, scanCache: ScanCache,
                                    opts: ProjectLoaderOptions,
-                                   cancellable: Gio.Cancellable | null = null): Promise<JetBrainsProject[]> {
+                                   cancellable: Gio.Cancellable | null = null): Promise<LoadedProjects> {
     const patterns = buildConfigDirPatterns(jetbrainsApp);
     const projectsByPath = new Map<string, JetBrainsProject>();
+    const xmlPaths: string[] = [];
 
     const roots = [{
         names: () => scanCache.getConfigDirNames(cancellable),
+        path: (name: string) => scanCache.recentProjectsXmlPath(name),
         xml: (name: string) => scanCache.getRecentProjectsXml(name, cancellable)
     }];
     if (opts.includeGoogleConfigDir) {
         roots.push({
             names: () => scanCache.getGoogleConfigDirNames(cancellable),
+            path: (name: string) => scanCache.googleRecentProjectsXmlPath(name),
             xml: (name: string) => scanCache.getGoogleRecentProjectsXml(name, cancellable)
         });
     }
@@ -102,6 +111,7 @@ export async function loadProjects(jetbrainsApp: JetBrainsApp, scanCache: ScanCa
 
             if (!patterns.some(pattern => pattern.test(name))) continue;
 
+            xmlPaths.push(root.path(name));
             const xml = await root.xml(name);
             if (!xml) continue;
 
@@ -116,5 +126,5 @@ export async function loadProjects(jetbrainsApp: JetBrainsApp, scanCache: ScanCa
         }
     }
 
-    return [...projectsByPath.values()];
+    return {projects: [...projectsByPath.values()], xmlPaths};
 }
