@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Gio from 'gi://Gio';
 import { __emitFileChange, __reset as resetFiles, __setFiles } from './mocks/gi-Gio.js';
 import { __addedProviders, __reset as resetMain } from './mocks/gnome-main.js';
+import { Extension } from './mocks/gnome-extension.js';
 import JetBrainsSearchProviderExtension from '../src/extension.js';
 
 const IDEA_DIR = '/home/test/.config/JetBrains/IntelliJIdea2025.1';
@@ -66,5 +67,36 @@ describe('late registration', () => {
         extension.disable();
 
         expect(__addedProviders).toHaveLength(0);
+    });
+});
+
+describe('results order', () => {
+    const apps = { id: 'apps', display: {} };
+    const remote = { id: 'remote', display: {} };
+
+    function enabledWith(settings: Record<string, boolean>) {
+        vi.spyOn(Extension.prototype, 'getSettings')
+            .mockReturnValueOnce({ get_boolean: (key: string) => settings[key] ?? false });
+        __addedProviders.push(apps, remote);
+        __setFiles({ [XML]: xmlWith('$USER_HOME$/work/keycloak') });
+        return enabledExtension();
+    }
+
+    it('moves the provider after apps when the first result is selected', async () => {
+        enabledWith({ 'override-results-order': true, 'select-first-result': true });
+        await vi.waitFor(() => expect(__addedProviders).toHaveLength(3));
+
+        expect(__addedProviders.indexOf(apps)).toBe(0);
+        expect(__addedProviders.indexOf(remote)).toBe(2);
+    });
+
+    it.each<Record<string, boolean>>([
+        { 'override-results-order': true },
+        { 'select-first-result': true },
+    ])('keeps the provider order unless both settings are on: %o', async settings => {
+        enabledWith(settings);
+        await vi.waitFor(() => expect(__addedProviders).toHaveLength(3));
+
+        expect(__addedProviders.slice(0, 2)).toEqual([apps, remote]);
     });
 });

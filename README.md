@@ -47,6 +47,8 @@ Access extension preferences through:
 
 - **Override Results Order**: Place JetBrains projects directly underneath applications in search results. Disable
   and re-enable the extension for the change to take effect.
+- **Select First Result**: Make the first JetBrains project the default selection, so Enter opens it. Turning it on
+  also turns on Override Results Order. Disable and re-enable the extension for the change to take effect.
 
 ## Installation
 

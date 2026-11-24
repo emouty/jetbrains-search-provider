@@ -40,6 +40,32 @@ export default class JetBrainsPreferences extends ExtensionPreferences {
             Gio.SettingsBindFlags.DEFAULT,
         );
 
+        const selectFirstResult = new Adw.SwitchRow({
+            title: _("Select First Result"),
+            subtitle: _(
+                "If enabled, the first JetBrains project is selected by default, so Enter opens it." +
+                " Also turns on Override Results Order. Requires disabling and re-enabling the extension to take effect.",
+            ),
+        });
+        group.add(selectFirstResult);
+        this._settings!.bind(
+            "select-first-result",
+            selectFirstResult,
+            "active",
+            Gio.SettingsBindFlags.DEFAULT,
+        );
+        // Selecting the first result only works on top of the order override.
+        selectFirstResult.connect("notify::active", () => {
+            if (selectFirstResult.active) {
+                overrideResultsOrder.active = true;
+            }
+        });
+        overrideResultsOrder.connect("notify::active", () => {
+            if (!overrideResultsOrder.active) {
+                selectFirstResult.active = false;
+            }
+        });
+
         return page;
     }
 }

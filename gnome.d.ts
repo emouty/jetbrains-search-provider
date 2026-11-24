@@ -17,6 +17,7 @@ declare module "resource:///org/gnome/shell/ui/main.js" {
             // Private GNOME Shell API — required for override-results-order feature.
             // No public alternative exists. provider.display is a Clutter.Actor (St.Widget).
             export const _searchResults: {
+                _providers: AppSearchProvider[];
                 _content: {
                     remove_child(child: Clutter.Actor): void;
                     insert_child_at_index(child: Clutter.Actor, index: number): void;

@@ -73,6 +73,13 @@ export default class JetBrainsSearchProviderExtension extends Extension {
                 const searchResults = Main.overview.searchController._searchResults;
                 searchResults._content.remove_child(provider.display);
                 searchResults._content.insert_child_at_index(provider.display, this.providers.length);
+                // The shell picks the default result in _providers order, not display order.
+                const providers = searchResults._providers;
+                const index = providers.indexOf(provider);
+                if (this.settings.get_boolean("select-first-result") && index >= 0) {
+                    providers.splice(index, 1);
+                    providers.splice(this.providers.length, 0, provider);
+                }
             } catch (e) {
                 console.warn(`JetBrains Search Provider: Could not reorder ${name} results: ${e}`);
             }

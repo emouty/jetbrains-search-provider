@@ -9,5 +9,13 @@
                 JetBrains. Requires disabling and re-enabling the extension to take effect.
             </description>
         </key>
+        <key name="select-first-result" type="b">
+            <default>false</default>
+            <summary>Select the first JetBrains result by default</summary>
+            <description>Boolean value indicating whether the first JetBrains result is the default selection, so
+                Enter opens it. Only applies when override-results-order is enabled. Requires disabling and
+                re-enabling the extension to take effect.
+            </description>
+        </key>
     </schema>
 </schemalist>
