@@ -9,13 +9,15 @@ export function __reset(): void {
 
 export const overview = {
     searchController: {
-        addProvider(provider: unknown): void {
+        addProvider(provider: { display?: unknown }): void {
+            provider.display ??= {};
             __addedProviders.push(provider);
         },
         removeProvider(provider: unknown): void {
             const index = __addedProviders.indexOf(provider);
             if (index >= 0) __addedProviders.splice(index, 1);
         },
-        _searchResults: { _content: { remove_child() {}, insert_child_at_index() {} } },
+        // The shell's provider list is the one addProvider appends to.
+        _searchResults: { _providers: __addedProviders, _content: { remove_child() {}, insert_child_at_index() {} } },
     },
 };
